@@ -7,7 +7,7 @@ Files of note:
 
 * multiFactorPlot: takes some data in sort of anovan format and plots it in multiple subplots/figures.  Very flexible in that you can override both the plot function and the layout function.  Currently only support a numeric groups argument, not a cell array.
 * safeInputParser: like inputParser, but warns and uses the default value when parameters don't pass validation.  Very dirty.
-* logMatlabError: logs a MATLAB error
+* logMatlabError: doesn't actually log a MATLAB error, but rethrows it as a warning
 
 Subfolders:
 
