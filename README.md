@@ -1,7 +1,7 @@
 # miscmatlab
 Miscellaneous MATLAB code
 
-Misc MATLAB for doing stuff, mostly to do with video analysis and/or calcium imaging data.  Currently a bit disorganised.  Mostly specific to my current projects but some of it might be refactored into general-purpose libraries and some unspecified point in the future, at which point it will probably move out of this repository.
+Misc MATLAB for doing stuff, mostly to do with video analysis and/or calcium imaging data.  Currently a bit disorganised.  Mostly specific to my current projects but some of it might be refactored into general-purpose libraries at some unspecified point in the future, at which point it will probably move out of this repository.
 
 Files of note:
 
