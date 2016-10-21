@@ -1,4 +1,6 @@
 function data = loadLXJOrMATFile(file)
+    [~,~,extn] = fileparts(file);
+    
     switch extn
         case '.lxj'
             fin = fopen(file{ii},'rb');
