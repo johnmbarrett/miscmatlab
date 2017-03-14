@@ -1,4 +1,14 @@
-[files,fileIndices,sortIndices] = loadFilesInNumericOrder('*.mat','VT([0-9]+)\.mat');
+function [files,fileIndices,sortIndices] = loadFilesInNumericOrder(dirString,indexRegex)
+    files = dir(dirString);
+    files = {files.name};
+    
+    fileIndices = cellfun(@(A) ternaryfun(isempty(A),@() NaN,@() str2double(A{1}{1})),cellfun(@(file) regexp(file,indexRegex,'tokens'),files,'UniformOutput',false));
+    files(isnan(fileIndices)) = [];
+    fileIndices(isnan(fileIndices)) = [];
+    
+    [fileIndices,sortIndices] = sort(fileIndices);
+    files = files(sortIndices);
+end
 
 % mapping from index to location:-
 %

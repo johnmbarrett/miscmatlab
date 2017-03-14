@@ -1,4 +1,4 @@
-function [mask,theta,x,y,w,pos] = chooseRotatedRectangleRoi(I)
+function [mask,theta,x,y,w,pos] = chooseRotatedRectangleROI(I)
     fig = figure;
     image = imshow(I);
     caxis([min(I(:)) max(I(:))]);

@@ -1,7 +1,7 @@
 function analyseCalciumImagingData(files,ledOnFrames,baselineFrames,trialFrames,conditions,outputFile,varNames) % TODO : switch to param-value style
     stacks = openTIFFStacks(files);
     
-    [rois,masks,meanImage] = chooseROIs(stacks,ledOnFrames,outputFile); %#ok<ASGLU>
+    [rois,masks,meanImage] = chooseROIs(stacks,'UseFrames',ledOnFrames,'MeanImageFile',[outputFile '_meanImage']); %#ok<ASGLU>
     
     [dff0,f0] = extractDeltaFF0(stacks,baselineFrames,trialFrames,ledOnFrames); %#ok<ASGLU>
     

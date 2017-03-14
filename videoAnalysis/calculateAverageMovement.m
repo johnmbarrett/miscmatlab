@@ -1,4 +1,4 @@
-function movement = calculateAverageMovement(lxjFiles,lutFile,baselineFrames,scale)
+function [movement,bigVideo,bigZScore] = calculateAverageMovement(lxjFiles,lutFile,baselineFrames,scale,rois,outputFilePrefix,noMatFile,noVideo)
     nFiles = numel(lxjFiles);
     
     if isempty(lutFile)
@@ -36,13 +36,41 @@ function movement = calculateAverageMovement(lxjFiles,lutFile,baselineFrames,sca
         baselineFrames = 1:nBaselineFrames;
     end
     
-    miniArraySize = round(arraySize(1:2)*scale);
-    bigArraySize = [miniArraySize(1)*(1+max(y)) miniArraySize(2)*(1+max(x)) arraySize(3:4)];
+    data = cellfun(@double,loadLXJOrMATFile(lxjFiles{1}),'UniformOutput',false);
     
-    bigVideo = zeros(bigArraySize);
-    bigZScore = zeros(bigArraySize);
-    sumZScore = zeros(bigArraySize(1:2));
-    movement = zeros(max(y)+1,max(x)+1);
+    miniArraySize = size(imresize(data{1}(:,:,1),scale));
+    
+    if nargin < 5 || isempty(rois) || (isscalar(rois) && isnan(rois)) % TODO : better arg checking
+        rois = [1 arraySize(1) 1 arraySize(2)];
+    end
+    
+    nROIs = size(rois,1);
+    
+    if nargin < 8
+        noVideo = false;
+    end
+    
+    if nROIs > 1
+        noVideo = true;
+    end
+    
+    if ~noVideo
+        bigArraySize = [miniArraySize(1)*(1+max(y)) miniArraySize(2)*(1+max(x)) arraySize(3:4) 1];
+        bigVideo = zeros(bigArraySize);
+        bigZScore = zeros(bigArraySize);
+    end
+    
+    movement = zeros(max(y)+1,max(x)+1,nROIs);
+    
+    if nargin < 7
+        noMatFile = false;
+    end
+    
+    if nargin < 6
+        outputFilePrefix = '';
+    else
+        outputFilePrefix = ['_' outputFilePrefix];
+    end
     
     for ii = 1:nFiles
         tic;
@@ -58,43 +86,72 @@ function movement = calculateAverageMovement(lxjFiles,lutFile,baselineFrames,sca
         yidx = y(ii)*miniArraySize(1)+(1:miniArraySize(1));
         xidx = x(ii)*miniArraySize(2)+(1:miniArraySize(2));
         
-        M = cellfun(@(A) mean(A(:,:,baselineFrames,:),3),data,'UniformOutput',false);
-        S = cellfun(@(A) std(A(:,:,baselineFrames,:),[],3),data,'UniformOutput',false);
-        Z = cellfun(@(A,m,s) bsxfun(@rdivide,bsxfun(@minus,A,m),s),data,M,S,'UniformOutput',false);
+        originalZscoreFile = [path name '_zscore.mat'];
         
-        for jj = 1:numel(Z)
-            Z{jj}(isnan(Z{jj})) = 0;
-            Z{jj}(isinf(Z{jj})) = max(Z{jj}(isfinite(Z{jj})));
-        end
-        
-        save([path name '_zscore.mat'],'-v7','Z'); % this is the fastest way even though it is really slow
-        
-        minZ = min(cellfun(@(A) min(A(:)),Z));
-        maxZ = max(cellfun(@(A) max(A(:)),Z));
-        
-        writer = VideoWriter([path name '_zscore.avi']); %#ok<TNMLP>
-        writer.FrameRate = 30; % TODO : pass in
-        
-        open(writer);
-        
-        for jj = 1:arraySize(4)
-            for kk = 1:size(data{jj},3) % account for dropped frames
-                writeVideo(writer,uint8(255*(Z{jj}(:,:,kk)-minZ)/(maxZ-minZ)));
-                bigVideo(yidx,xidx,kk,jj) = imresize(data{jj}(:,:,kk),scale);
-                bigZScore(yidx,xidx,kk,jj) = imresize(Z{jj}(:,:,kk),scale);
+        if exist(originalZscoreFile,'file')
+            load(originalZscoreFile,'Z');
+            
+            if ~iscell(Z{1})
+                Z2 = cell(nROIs,1);
+                
+                for jj = 1:nROIs
+                    r = rois(jj,:);
+                    Z2{jj} = cellfun(@(A) A(r(1):r(2),r(3):r(4),:,:),Z,'UniformOutput',false);
+                end
+                
+                Z = Z2;
+            end
+        else
+            Z = cell(nROIs,1);
+            
+            for jj = 1:nROIs
+                r = rois(jj,:);
+                M = cellfun(@(A) mean(A(r(1):r(2),r(3):r(4),baselineFrames,:),3),data,'UniformOutput',false);
+                S = cellfun(@(A) std(A(r(1):r(2),r(3):r(4),baselineFrames,:),[],3),data,'UniformOutput',false);
+                Z{jj} = cellfun(@(A,m,s) bsxfun(@rdivide,bsxfun(@minus,A(r(1):r(2),r(3):r(4),:,:),m),s),data,M,S,'UniformOutput',false);
+            end
+
+            for jj = 1:numel(Z)
+                for kk = 1:numel(Z{jj})
+                    Z{jj}{kk}(isnan(Z{jj}{kk})) = 0;
+                    Z{jj}{kk}(isinf(Z{jj}{kk})) = max(Z{jj}{kk}(isfinite(Z{jj}{kk})));
+                end
+            end
+
+            if ~noMatFile
+                save([path name outputFilePrefix '_zscore.mat'],'-v7','Z'); % this is the fastest way even though it is really slow
             end
         end
         
-        close(writer);
-        
-        sumZ = zeros(arraySize(1:2));
-        
-        for jj = 1:numel(Z)
-            sumZ = sumZ + sum(abs(Z{jj}),3)/numel(Z);
+        if ~noVideo
+            minZ = min(cellfun(@(A) min(A(:)),Z{1}));
+            maxZ = max(cellfun(@(A) max(A(:)),Z{1}));
+
+            writer = VideoWriter([path name outputFilePrefix '_zscore.avi']); %#ok<TNMLP>
+            writer.FrameRate = 30; % TODO : pass in
+
+            open(writer);
+
+            for jj = 1:arraySize(4)
+                for kk = 1:size(data{jj},3) % account for dropped frames
+                    writeVideo(writer,uint8(255*(Z{1}{jj}(:,:,kk)-minZ)/(maxZ-minZ)));
+                    bigVideo(yidx,xidx,kk,jj) = imresize(data{jj}(:,:,kk),scale);
+                    bigZScore(yidx,xidx,kk,jj) = imresize(Z{1}{jj}(:,:,kk),scale);
+                end
+            end
+
+            close(writer);
         end
         
-        sumZScore(yidx,xidx) = imresize(sumZ,scale);
-        movement(y(ii)+1,x(ii)+1) = mean(sumZ(:));
+        for jj = 1:numel(Z)
+            sumZ = zeros(size(Z{jj}{1},1),size(Z{jj}{1},2));
+            
+            for kk = 1:numel(Z{jj})
+                sumZ = sumZ + sum(abs(Z{jj}{kk}),3)/numel(Z{jj});
+            end
+        
+            movement(y(ii)+1,x(ii)+1,jj) = mean(sumZ(:));
+        end
         
         clear data M S Z;
         
@@ -108,13 +165,17 @@ function movement = calculateAverageMovement(lxjFiles,lutFile,baselineFrames,sca
     dirs = strsplit(pwd,{'\' '/'});
     lastDir = dirs{end};
     
-    save([lastDir '_movement.mat'],'movement');
+    save([lastDir outputFilePrefix '_movement.mat'],'movement');
     
-    writer1 = VideoWriter([lastDir '_zscore.avi']);
+    if noVideo
+        return
+    end
+    
+    writer1 = VideoWriter([lastDir outputFilePrefix '_zscore.avi']);
     writer1.FrameRate = 30;
     open(writer1);
     
-    writer2 = VideoWriter([lastDir '_all_positions.avi']);
+    writer2 = VideoWriter([lastDir outputFilePrefix '_all_positions.avi']);
     writer2.FrameRate = 30;
     open(writer2);
     
