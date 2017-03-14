@@ -1,13 +1,25 @@
-function [rois,masks,meanImage] = chooseROIs(stacks,ledOnFrames,outputFile)
-    meanImage = zeros(sizes(1,[1 2]));
-    nStacks = numel(stacks);
-    
-    if nargin < 2 || ~((islogical(ledOnFrames) && numel(ledOnFrames) == size(stacks{1},3)) || (isnumeric(ledOnFrames) && isreal(ledOnFrames(:)) && all(isfinite(ledOnFrames) & round(ledOnFrames(:)) == ledOnFrames(:) & ledOnFrames(:) > 0 & ledOnFrames(:) <= size(stacks{1},3))))
-        ledOnFrames = true(size(stacks{1},3),1);
+function [rois,masks,meanImage] = chooseROIs(stacks,varargin)
+    if ~iscell(stacks)
+        stacks = {stacks};
     end
     
+    meanImage = zeros(size(stacks{1},1),size(stacks{1},2));
+    nStacks = numel(stacks);
+    
+    parser = inputParser;
+    parser.addParameter('UseFrames',true(size(stacks{1},3),1),@(x) (islogical(x) && numel(x) == size(stacks{1},3)) || (isnumeric(x) && isreal(x) && all(isfinite(x(:)) & round(x(:)) == x(:) & x(:) > 0 & x(:) <= size(stacks{1},3))));
+    parser.addParameter('MeanImageFile',NaN,@(x) ischar(x) || (isscalar(x) && isnumeric(x) && isnan(x)));
+    
+    isFunctionHandle = @(x) isa(x,'function_handle');
+    
+    parser.addParameter('ROIFunction',@imfreehand,isFunctionHandle);
+    parser.addParameter('MeanFunction',@(a,b) a + double(mean(b,3))/nStacks,isFunctionHandle);
+    parser.parse(varargin{:});
+    
+    useFrames = parser.Results.UseFrames;
+    
     for ii = 1:nStacks
-        meanImage = meanImage + double(mean(stacks{ii}(:,:,ledOnFrames),3))/nStacks;
+        meanImage = parser.Results.MeanFunction(meanImage,stacks{ii}(:,:,useFrames));
     end
     
     meanImageFigure = figure;
@@ -15,10 +27,12 @@ function [rois,masks,meanImage] = chooseROIs(stacks,ledOnFrames,outputFile)
     hold(gca,'on');
     caxis(prctile(meanImage(:),[1 99]))
     
+    roifun = parser.Results.ROIFunction;
+    
 %     if nargin > 4 && ischar(roisFile) && exist(roisFile,'file') % TODO : fix
 %         load(roisFile,'rois');
 %     else
-        roi = imfreehand;
+        roi = roifun();
 
         while ~isempty(roi)
             if exist('rois','var')
@@ -27,7 +41,7 @@ function [rois,masks,meanImage] = chooseROIs(stacks,ledOnFrames,outputFile)
                 rois = roi;
             end
 
-            roi = imfreehand;
+            roi = roifun();
         end
 
         if ~exist('rois','var')
@@ -35,9 +49,10 @@ function [rois,masks,meanImage] = chooseROIs(stacks,ledOnFrames,outputFile)
         end
 %     end
     
-    colours = distinguishable_colors(nCells);
+    nROIs = numel(rois);
+    colours = distinguishable_colors(nROIs);
     
-    for ii = 1:nCells
+    for ii = 1:nROIs
         pos = getPosition(rois(ii));
         line(pos(:,1),pos(:,2),'Color',colours(ii,:));
         text(max(pos(:,1)),max(pos(:,2)),sprintf('#%d',ii),'Color',colours(ii,:),'FontSize',16,'HorizontalAlignment','left','VerticalAlignment','bottom');
@@ -46,9 +61,7 @@ function [rois,masks,meanImage] = chooseROIs(stacks,ledOnFrames,outputFile)
     
     masks = arrayfun(@createMask,rois,'UniformOutput',false);
     
-    if nargin < 3 || ~ischar(outputFile)
-        return
+    if ischar(parser.Results.MeanImageFile)
+        saveas(meanImageFigure,parser.Results.MeanImageFile,'fig');
     end
-    
-    saveas([outputFile '_meanImage.fig'],meanImageFigure,'fig');
 end

@@ -1,6 +1,6 @@
 function trajectory = basicMotionTracking(I,varargin)
     parser = inputParser;
-    parser.addParameter('ROIs',NaN,@(x) isa(x,'imroi'));
+    parser.addParameter('ROIs',NaN,@(x) isa(x,'imroi') || (iscell(x) && all(cellfun(@(A) isequal(size(A),[1 4]),x))) || (isnumeric(x) && ismatrix(x) && size(x,2) == 4));
     parser.addParameter('UpdateTemplate',false,@(x) isscalar(x) && islogical(x));
     parser.addParameter('VideoOutputFile','trajectory',@(x) (isscalar(x) && isnan(x)) || ischar(x));
     parser.parse(varargin{:});
@@ -13,17 +13,25 @@ function trajectory = basicMotionTracking(I,varargin)
     
     templateROIs = parser.Results.ROIs;
     
-    if ~isa(templateROIs,'imroi')
-        imshow(firstFrame);
-        caxis([0 255]);
+    % TODO : sanity check ROI bounds
+    if iscell(templateROIs) && all(cellfun(@(A) isequal(size(A),[1 4]),templateROIs))
+        templatePos = vertcat(templateROIs{:});
+    elseif isnumeric(templateROIs) && ismatrix(templateROIs) && size(templateROIs,2) == 4
+        templatePos = templateROIs;
+    else
+        if ~isa(templateROIs,'imroi')
+            imshow(firstFrame);
+            caxis([0 255]);
+
+            templateROIs = chooseMultipleROIs;
+        end
         
-        templateROIs = chooseMultipleROIs;
+        templatePos = arrayfun(@(roi) roi.getPosition,templateROIs,'UniformOutput',false);
+        templatePos = vertcat(templatePos{:});
     end
     
-    nROIs = numel(templateROIs);
+    nROIs = size(templatePos,1);
     
-    templatePos = arrayfun(@(roi) roi.getPosition,templateROIs,'UniformOutput',false);
-    templatePos = vertcat(templatePos{:});
     templateX = cell(nROIs,1);
     templateY = cell(nROIs,1);
     
@@ -100,7 +108,7 @@ function trajectory = basicMotionTracking(I,varargin)
             end
             
             matchX{kk} = xmax-size(template,2)+(1:size(template,2))+searchX{kk}(1)-1;
-            matchY{kk} = ymax-size(template,2)+(1:size(template,2))+searchY{kk}(1)-1;
+            matchY{kk} = ymax-size(template,1)+(1:size(template,1))+searchY{kk}(1)-1;
         end
         
         if outputVideo

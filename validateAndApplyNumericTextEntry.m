@@ -1,4 +1,4 @@
-function validateAndApplyNumericTextEntry(box,slider)
+function vnew = validateAndApplyNumericTextEntry(box,slider,validateFun)
     s = get(box,'String');
 
     sign = 1;
@@ -15,7 +15,18 @@ function validateAndApplyNumericTextEntry(box,slider)
     end
 
     vold = sign*str2double(s);
-    vnew = min(get(slider,'Max'),max(get(slider,'Min'),vold));
+    
+    isThereASlider = nargin > 1 && isscalar(slider) && isgraphics(slider); % TODO : check it's actually a slider
+    
+    if isThereASlider
+        vnew = min(get(slider,'Max'),max(get(slider,'Min'),vold));
+    else
+        vnew = vold;
+    end
+    
+    if nargin > 2 && isa(validateFun,'function_handle')
+        vnew = validateFun(vnew);
+    end
 
     if vold ~= vnew
         s = num2str(vnew);
@@ -26,5 +37,8 @@ function validateAndApplyNumericTextEntry(box,slider)
     end
 
     set(box,'String',s);
-    set(slider,'Value',vnew);
+    
+    if isThereASlider
+        set(slider,'Value',vnew);
+    end
 end

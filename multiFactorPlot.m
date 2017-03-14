@@ -19,6 +19,7 @@ function [figs,uniqueConditions,conditionIndices,conditionsPerFactor] = multiFac
     parser.addParameter('XData',NaN);
     parser.addParameter('XDim',1,isIntegerScalarLessThanResponseDims);
     parser.addParameter('ManualSubplots',false,@(x) isscalar(x) && islogical(x));
+    parser.addParameter('Figures',NaN,@(x) all(isgraphics(x(:))));
     
     parser.parse(varargin{:});
     
@@ -33,14 +34,19 @@ function [figs,uniqueConditions,conditionIndices,conditionsPerFactor] = multiFac
     nTrials = size(responses,parser.Results.TrialDim);
     assert(ismatrix(conditions) && isnumeric(conditions) && size(conditions,1) == nTrials); % TODO : non-numeric conditions
     
-    if nFactors < 3
-        figs = gobjects(nSubjects,1);
+    if ~isgraphics(parser.Results.Figures)
+        if nFactors < 3
+            figs = gobjects(nSubjects,1);
+        else
+            figs = gobjects([nConditionsPerFactor(3:end) nSubjects]);
+        end
+        
+        for ii = 1:numel(figs)
+            figs(ii) = figure;
+        end
     else
-        figs = gobjects([nConditionsPerFactor(3:end) nSubjects]);
-    end
-    
-    for ii = 1:numel(figs)
-        figs(ii) = figure;
+        figs = parser.Results.Figures;
+        assert(numel(figs) == prod(nConditionsPerFactor(3:end)*nSubjects));
     end
     
     colours = parser.Results.Colours;
