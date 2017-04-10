@@ -18,3 +18,4 @@ function rois = chooseMultipleROIs(roifun)
         
         roi = roifun();
     end
+end

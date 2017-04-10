@@ -5,7 +5,9 @@ function fwhmBlobAnalysis(file)
         dff0 = bin(dff0,ceil(size(dff0,1)/100)); % TODO : specify binning
     end
     
-    dff02 = cat(5,dff0(:,:,:,1:2:end),dff0(:,:,:,2:2:end));
+    % if there's an even number of trials, 1:2:(end-1) is equivalent to
+    % 1:2:end.  if odd, 1:2:end-1 drops the last control trial.
+    dff02 = cat(5,dff0(:,:,:,1:2:(end-1)),dff0(:,:,:,2:2:end));
     dff03 = zeros(size(dff02));
     
     for ii = 1:size(dff02,3)

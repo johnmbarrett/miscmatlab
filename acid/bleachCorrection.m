@@ -25,4 +25,5 @@ function bleachCorrection(file)
     plot(f,x,dff0(:));
     
     save(strrep(file,'_dff0','_bleach_corrected_dff0'),'f0','dff0','x','y','f','ff');
+    makeMeanDeltaFF0Video(dff0,[ones(sizeD(4),1) repmat([0;1],sizeD(4)/2,1)],strrep(file,'_dff0.mat','_bleach_corrected_basic.avi'),{'Dummy' 'Stim On'},(sizeD(3)+1)/10,@(x,y) [0.025+0.5*(x-1) 0.05 0.45 0.9],[0 0 900 300]);
 end

@@ -1,13 +1,13 @@
-function [movement,bigVideo,bigZScore] = calculateAverageMovement(lxjFiles,lutFile,baselineFrames,scale,rois,outputFilePrefix,noMatFile,noVideo)
+function [movement,bigVideo,bigZScore] = calculateAverageMovement(lxjFiles,lutFile,baselineFrames,scale,rois,outputFilePrefix,noMatFile,noVideo,noIntermediaryFiles)
     nFiles = numel(lxjFiles);
     
     if isempty(lutFile)
         n = ceil(sqrt(numel(lxjFiles)));
         x = kron(0:n-1,ones(1,n))';
         y = repmat(0:n-1,1,n)';
-    elseif isnumeric(lutFile) && numel(lutFile) == 2 && all(isfinite(lutFile) & lutFile >= 1)
+    elseif isnumeric(lutFile) && numel(lutFile) == 2 && all(isfinite(lutFile(:)) & lutFile(:) >= 1)
         x = kron(0:lutFile(1)-1,ones(1,lutFile(2)))';
-        y = repmat(0:lutFile(2)-1,1,lutFile(1))';
+        y = flipud(repmat(0:lutFile(2)-1,1,lutFile(1))');
     else
         lut = importdata(lutFile);
         x = lut(2,1:nFiles);
@@ -38,11 +38,11 @@ function [movement,bigVideo,bigZScore] = calculateAverageMovement(lxjFiles,lutFi
     
     data = cellfun(@double,loadLXJOrMATFile(lxjFiles{1}),'UniformOutput',false);
     
-    miniArraySize = size(imresize(data{1}(:,:,1),scale));
-    
     if nargin < 5 || isempty(rois) || (isscalar(rois) && isnan(rois)) % TODO : better arg checking
         rois = [1 arraySize(1) 1 arraySize(2)];
     end
+    
+    miniArraySize = size(imresize(data{1}(rois(1,1):rois(1,2),rois(1,3):rois(1,4),1),scale)); % TODO : output montage for all rois
     
     nROIs = size(rois,1);
     
@@ -66,7 +66,7 @@ function [movement,bigVideo,bigZScore] = calculateAverageMovement(lxjFiles,lutFi
         noMatFile = false;
     end
     
-    if nargin < 6
+    if nargin < 6 || isempty(outputFilePrefix)
         outputFilePrefix = '';
     else
         outputFilePrefix = ['_' outputFilePrefix];
@@ -118,7 +118,7 @@ function [movement,bigVideo,bigZScore] = calculateAverageMovement(lxjFiles,lutFi
                 end
             end
 
-            if ~noMatFile
+            if ~noMatFile && ~noIntermediaryFiles
                 save([path name outputFilePrefix '_zscore.mat'],'-v7','Z'); % this is the fastest way even though it is really slow
             end
         end
@@ -127,20 +127,27 @@ function [movement,bigVideo,bigZScore] = calculateAverageMovement(lxjFiles,lutFi
             minZ = min(cellfun(@(A) min(A(:)),Z{1}));
             maxZ = max(cellfun(@(A) max(A(:)),Z{1}));
 
-            writer = VideoWriter([path name outputFilePrefix '_zscore.avi']); %#ok<TNMLP>
-            writer.FrameRate = 30; % TODO : pass in
+            if ~noIntermediaryFiles
+                writer = VideoWriter([path name outputFilePrefix '_zscore.avi']); %#ok<TNMLP>
+                writer.FrameRate = 30; % TODO : pass in
 
-            open(writer);
+                open(writer);
+            end
 
             for jj = 1:arraySize(4)
                 for kk = 1:size(data{jj},3) % account for dropped frames
-                    writeVideo(writer,uint8(255*(Z{1}{jj}(:,:,kk)-minZ)/(maxZ-minZ)));
-                    bigVideo(yidx,xidx,kk,jj) = imresize(data{jj}(:,:,kk),scale);
+                    if ~noIntermediaryFiles
+                        writeVideo(writer,uint8(255*(Z{1}{jj}(:,:,kk)-minZ)/(maxZ-minZ)));
+                    end
+                    
+                    bigVideo(yidx,xidx,kk,jj) = imresize(data{jj}(rois(1,1):rois(1,2),rois(1,3):rois(1,4),kk),scale);
                     bigZScore(yidx,xidx,kk,jj) = imresize(Z{1}{jj}(:,:,kk),scale);
                 end
             end
 
-            close(writer);
+            if ~noIntermediaryFiles
+                close(writer);
+            end
         end
         
         for jj = 1:numel(Z)
