@@ -2,9 +2,15 @@ function [figs,tf,warpedMaps,refs] = alignHeatmapToBrainImage(map,brainImage,gri
     rows = size(map,1);
     cols = size(map,2);
     
-    movingPoints = [0 0; 0 rows+1; cols+1 0; cols+1 rows+1];
-    fixedPoints = [1 -1 cols+2; 1 rows cols+2; 1 -1 1; 1 rows 1]*gridParams;
-    tf = fitgeotrans(movingPoints,fixedPoints,'affine');
+    if isa(gridParams,'affine2d')
+        tf = gridParams;
+        grid = transformPointsForward(tf,kron((1:rows)',ones(cols,1)),repmat((1:cols)',rows,1)); % TODO : check
+    else
+        movingPoints = [0 0; 0 rows+1; cols+1 0; cols+1 rows+1];
+        fixedPoints = [1 -1 cols+2; 1 rows cols+2; 1 -1 1; 1 rows 1]*gridParams;
+        tf = fitgeotrans(movingPoints,fixedPoints,'affine');
+        grid = [ones(rows*cols,1) kron((1:rows)',ones(cols,1)) repmat((1:cols)',rows,1)]*gridParams;
+    end
     
     [~,currentFolder] = fileparts(pwd);
     save(sprintf('%s_heatmap_alignment_transform.mat',currentFolder),'tf');
@@ -17,7 +23,6 @@ function [figs,tf,warpedMaps,refs] = alignHeatmapToBrainImage(map,brainImage,gri
     cmap = jet(256); % TODO : jet3
     cmap(1,:) = 0;
     
-    grid = [ones(rows*cols,1) kron((1:rows)',ones(cols,1)) repmat((1:cols)',rows,1)]*gridParams;
     figs = gobjects(size(map,3),1);
     
     warpedMaps = cell(size(map,3),1);
