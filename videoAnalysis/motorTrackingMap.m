@@ -1,4 +1,4 @@
-function [map,trajectories] = motorTrackingMap(files,varargin)
+function [map,trajectories,pathLengths,motionTubes,roiPositions] = motorTrackingMap(files,varargin)
     parser = inputParser;
     parser.addParameter('ROIs',NaN,@(x) isa(x,'imroi') || (iscell(x) && all(cellfun(@(A) isequal(size(A),[1 4]),x))) || (isnumeric(x) && ismatrix(x) && size(x,2) == 4));
     parser.addParameter('UseMeanFirstImage',false,@(x) isscalar(x) && islogical(x));
