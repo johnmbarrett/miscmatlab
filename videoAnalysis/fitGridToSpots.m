@@ -1,21 +1,23 @@
-function [grid,beta] = fitGridToSpots(images,rows,cols,varargin) % TODO : name value pairs
+function [grid,beta,CX,CY] = fitGridToSpots(images,rows,cols,varargin) % TODO : name value pairs
     parser = inputParser;
-    parser.addRequired('images',@(X) (iscell(X) && (all(cellfun(@ischar,X)) || (isstruct(X) && isfield(X,'name')) || all(cellfun(@(x) isnumeric(x) && ismember(ndims(x),[2 3]) && all(isfinite(x(:))),X)))) || (isnumeric(x) && ismember(ndims(x),[3 4]) && all(isfinite(X(:)))));
+    parser.addRequired('images',@(X) iscellstr(X) || (isstruct(X) && isfield(X,'name')) || (iscell(X) && all(cellfun(@(x) isnumeric(x) && ismember(ndims(x),[2 3]) && all(isfinite(x(:))),X))) || (isnumeric(X) && ismember(ndims(X),[3 4]) && all(isfinite(X(:)))));
     
     isPositiveScalarInteger = @(x) isscalar(x) && isnumeric(x) && isfinite(x) && x > 0 && x == round(x);
     parser.addRequired('rows',isPositiveScalarInteger);
     parser.addRequired('cols',isPositiveScalarInteger);
     
+    parser.addParameter('BackgroundSubtraction',false,@(x) isscalar(x) && islogical(x));
+    parser.addParameter('BackgroundImage',0,@(x) isnumeric(x) && ismatrix(x) && all(isreal(x(:)) & isfinite(x(:))));
     parser.addParameter('ManualDetection',false,@(x) isscalar(x) && islogical(x));
     parser.addParameter('ThresholdMethod','absolute',@(x) ischar(x) && any(strcmpi(x,{'absolute' 'percentile'})));
-    parser.addParameter('Threshold',254,@(x) isscalar(x) && isnumeric(x) && isfinite(x) && x >=0 && x <= 255);
+    parser.addParameter('Threshold',Inf,@(x) isscalar(x) && isnumeric(x) && isfinite(x) && x >=0 && x <= 255);
     parser.parse(images,rows,cols,varargin{:});
     
     threshold = parser.Results.Threshold;
     isPercentileThreshold = strcmpi(parser.Results.ThresholdMethod,'percentile');
     
-    if isPercentileThreshold && threshold > 100
-        threshold = 100;
+    if isPercentileThreshold
+        percentileThreshold = min(threshold,100);
     end
     
     nImages = rows*cols;
@@ -23,7 +25,7 @@ function [grid,beta] = fitGridToSpots(images,rows,cols,varargin) % TODO : name v
     CX = cell(nImages,1);
     CY = cell(nImages,1);
     
-    if manualBlobDetection
+    if parser.Results.ManualDetection
         fig = figure;
     end
     
@@ -60,11 +62,19 @@ function [grid,beta] = fitGridToSpots(images,rows,cols,varargin) % TODO : name v
             I = images(index{:});
         end
         
+        if parser.Results.BackgroundSubtraction
+            I = I - parser.Results.BackgroundImage;
+        end
+        
         if isPercentileThreshold
-            threshold = prctile(I(:),threshold); % TODO : choose threshold?
+            threshold = prctile(I(:),percentileThreshold); % TODO : choose threshold?
         end
 
-        CC = bwconncomp(I > threshold);
+        if isfinite(threshold)
+            CC = bwconncomp(I > threshold);
+        else
+            CC = bwconncomp(I == max(I(:)));
+        end
         
         nBlobs = numel(CC.PixelIdxList);
         
@@ -72,9 +82,17 @@ function [grid,beta] = fitGridToSpots(images,rows,cols,varargin) % TODO : name v
             [~,biggestBlobIndex] = max(cellfun(@numel,CC.PixelIdxList));
             
             blob = CC.PixelIdxList{biggestBlobIndex};
-            
+        
             CX{ii} = X(blob);
             CY{ii} = Y(blob);
+            
+            % TODO : expose an option to show this
+%             J = zeros(size(I));
+%             J(blob) = 1;
+%             
+%             imshow(J);
+%             
+%             drawnow;
             
             continue;
         end
@@ -116,13 +134,13 @@ function [grid,beta] = fitGridToSpots(images,rows,cols,varargin) % TODO : name v
         CY{ii} = Y(blob);
     end
     
-    if manualBlobDetection
+    if parser.Results.ManualDetection
         close(fig);
     end
     
     % TODO : always column-major starting from top left?
-    R = arrayfun(@(C,r) r*ones(numel(C{1}),1),CY,kron((rows:-1:1)',ones(cols,1)),'UniformOutput',false);
-    C = arrayfun(@(D,c) c*ones(numel(D{1}),1),CX,repmat((1:cols)',rows,1),'UniformOutput',false);
+    R = arrayfun(@(C,r) r*ones(numel(C{1}),1),CY,repmat((rows:-1:1)',cols,1),'UniformOutput',false);
+    C = arrayfun(@(D,c) c*ones(numel(D{1}),1),CX,kron((1:cols)',ones(rows,1)),'UniformOutput',false);
     
     r = vertcat(R{:});
     c = vertcat(C{:});
