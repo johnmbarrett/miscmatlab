@@ -71,6 +71,9 @@ function s = parseChar(s)
 end
 
 function d = parseDate(s)
+    d = now;
+    return
+    
     try
         d = textscan(s,'%{MM-dd-uuuu_HH:mm:ss}D');
     catch

@@ -1,5 +1,6 @@
 function [grid,beta,CX,CY] = fitGridToSpots(images,rows,cols,varargin) % TODO : name value pairs
     parser = inputParser;
+    parser.KeepUnmatched = true;
     parser.addRequired('images',@(X) iscellstr(X) || (isstruct(X) && isfield(X,'name')) || (iscell(X) && all(cellfun(@(x) isnumeric(x) && ismember(ndims(x),[2 3]) && all(isfinite(x(:))),X))) || (isnumeric(X) && ismember(ndims(X),[3 4]) && all(isfinite(X(:)))));
     
     isPositiveScalarInteger = @(x) isscalar(x) && isnumeric(x) && isfinite(x) && x > 0 && x == round(x);
@@ -30,7 +31,7 @@ function [grid,beta,CX,CY] = fitGridToSpots(images,rows,cols,varargin) % TODO : 
     end
     
     if iscell(images)
-        images = images{1:nImages};
+        images = images(1:nImages);
         sizeI = size(imread(images{1}));
     elseif isstruct(images)
         images = images(1:nImages);
@@ -138,13 +139,20 @@ function [grid,beta,CX,CY] = fitGridToSpots(images,rows,cols,varargin) % TODO : 
         close(fig);
     end
     
-    % TODO : always column-major starting from top left?
-    R = arrayfun(@(C,r) r*ones(numel(C{1}),1),CY,repmat((rows:-1:1)',cols,1),'UniformOutput',false);
-    C = arrayfun(@(D,c) c*ones(numel(D{1}),1),CX,kron((1:cols)',ones(rows,1)),'UniformOutput',false);
+    N = cellfun(@numel,CX);
+    
+    assert(isequal(N,cellfun(@numel,CY)));
+    
+    R = arrayfun(@(n,r) r*ones(n,1),N,repmat((1:rows)',cols,1),'UniformOutput',false);
+    C = arrayfun(@(n,c) c*ones(n,1),N,kron((1:cols)',ones(rows,1)),'UniformOutput',false);
     
     r = vertcat(R{:});
     c = vertcat(C{:});
     
+    % In the image processing toolbox, columns (i.e. X) always come before
+    % rows (i.e. Y).  Hence if we specify the predictors this way round, we
+    % can multiply the fixed points by the grid params to get the moving
+    % points to fit the alignment transform.
     beta = mvregress([ones(size(r)) c r],[vertcat(CX{:}) vertcat(CY{:})]);
-    grid = [ones(nImages,1) repmat((1:cols)',rows,1) kron((1:rows)',ones(cols,1))]*beta;
+    grid = [ones(nImages,1) kron((1:cols)',ones(rows,1)) repmat((1:rows)',cols,1)]*beta;
 end
