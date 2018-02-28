@@ -57,4 +57,8 @@ legend({'Wheel' 'Threshold'});
 
 %%
 
-exampleAngles = zeros(numel(exampleAngle),numel(successIndices));
+figure
+plot(exampleTime,exampleAngles,'Color','b');
+line([0 0],ylim,'Color','k','LineStyle','--');
+xlabel('Time from threshold crossing (s)');
+ylabel('Wheel angle relative to previous threshold crossing (degrees)');
