@@ -1,15 +1,54 @@
-function [timestamps,angle,state,threshold,successIndices,successTimes,learningCurve,phase,cuePeriod,cumulativeRewards,cumulativeSuccesses,cumulativeFailures,totalRewards] = loadRotencFile(filename,nColumns, isNoPlot)
+function [timestamps,angle,state,threshold,successIndices,successTimes,learningCurve,phase,cuePeriod,cumulativeRewards,cumulativeSuccesses,cumulativeFailures,totalRewards,lickometer] = loadRotencFile(filename,nColumns,varargin) % TODO : better control over output arguments
     [~,~,ext] = fileparts(filename);
     
-    if nargin < 2
-        nColumns = NaN;
+    if nargin >= 2
+        if isnumeric(nColumns) % backwards compatibility
+            if ~any(cellfun(@(s) ischar(s) && strcmp(s,'Columns'),varargin))
+                varargin = [{'Columns' nColumns} varargin];
+            else
+                warning('Old-style nColumns argument provided along with new-style name-value pair arguments, nColumns will be ignored');
+            end
+        elseif ischar(nColumns)
+            varargin = [{nColumns} varargin];
+        else
+            error('I don''t understand what is happening any more.');
+        end
     end
     
-    if (nargin > 1 && strcmp(nColumns,'bin')) || any(strcmpi(ext,{'.bin' '.dat'}))
-        nColumns = 10;
-        A = loadRotencBinaryFile(filename);
+    parser = inputParser;
+    addParameter(parser,'Columns',10,@(x) (isnumeric(x) && isscalar(x) && isfinite(x) && round(x) == x && x > 0 && x < 11) || iscellstr(x));
+    addParameter(parser,'Format','unspecified',@(x) ischar(x) && any(strncmpi(x,{'b' 't'},1)));
+    addParameter(parser,'PlotData',false,@(x) islogical(x) && isscalar(x));
+    addParameter(parser,'StructSize',32,@(x) (isnumeric(x) && isscalar(x) && isfinite(x) && round(x) == x && x > 0));
+    addParameter(parser,'StructFormat',[4 4 1 1 4 4 2 2 2 2],@(x) isnumeric(x) && isvector(x) && all(ismember(x,[1 2 4 8])));
+    addParameter(parser,'StructIsUnsigned',[true false(1,4) true(1,5)],@(x) islogical(x) && isvector(x));
+    addParameter(parser,'SuccessStates',2,@(x) (isnumeric(x) && isvector(x) && all(isfinite(x) & x >= 0))); % TODO : this should even really be here
+    
+    parser.parse(varargin{:});
+    
+    columns = parser.Results.Columns;
+    
+    defaultColumns = {'timestamps' 'angle' 'state' 'phase' 'threshold' 'cuePeriod' 'cumulativeRewards' 'cumulativeSuccesses' 'cumulativeFailures' 'totalRewards'};
+    
+    if isnumeric(columns)
+        switch columns
+            case 4
+                columns = defaultColumns([1:3 5]);
+            case 9
+                columns = defaultColumns([1:3 5:end]);
+            otherwise
+                columns = defaultColumns(1:columns);
+        end
+    end
+    
+    nColumns = numel(columns);
+    
+    if strncmpi(parser.Results.Format,'b',1) || any(strcmpi(ext,{'.bin' '.dat'}))
+        A = loadRotencBinaryFile(filename,parser.Results.StructSize,parser.Results.StructFormat,parser.Results.StructIsUnsigned);
     else
         [A,nColumns] = loadRotencTextFile(filename,nColumns);
+        
+        columns = columns(1:nColumns);
     end
     
     if isempty(A)
@@ -18,7 +57,8 @@ function [timestamps,angle,state,threshold,successIndices,successTimes,learningC
         t0 = A(1,1);
     end
     
-    timestamps = (A(:,1)-t0);
+    % TODO : tidy this up a bit, also error checking
+    timestamps = (A(:,strcmp(columns,'timestamps'))-t0);
     
 %     [timestamps,uniqueIndices] = unique(timestamps);
     if timestamps(end) < timestamps(end-1) % probably a corrupted sample
@@ -39,11 +79,11 @@ function [timestamps,angle,state,threshold,successIndices,successTimes,learningC
     
     timestamps = timestamps/1e6;
     
-    angle = 360*A(:,2)/4096;
-    state = A(:,3);
-    threshold = 360*A(:,4+(nColumns>4))/4096;
+    angle = 360*A(:,strcmp(columns,'angle'))/4096;
+    state = A(:,strcmp(columns,'state'));
+    threshold = 360*A(:,strcmp(columns,'threshold'))/4096;
     
-    if nColumns == 4
+    if isnumeric(parser.Results.Columns) && nColumns == 4 % TODO : I really should have put a header with a version number
         successIndices = find(diff(state) == 1);
         phase = zeros(numel(timestamps),1); % can't be nan because otherwise unique(phase) doesn't work
         cuePeriod = nan(numel(timestamps),1);
@@ -51,21 +91,16 @@ function [timestamps,angle,state,threshold,successIndices,successTimes,learningC
         cumulativeSuccesses = nan(numel(timestamps),1);
         cumulativeFailures = nan(numel(timestamps),1);
         totalRewards = nan(numel(timestamps),1);
-    elseif nColumns >= 9
-        successIndices = find(state(1:end-1) == 1 & state(2:end) == 2);
-        phase = A(:,4);
-        cuePeriod = A(:,6);
-        cumulativeRewards = A(:,7);
-        cumulativeSuccesses = A(:,8);
-        cumulativeFailures = A(:,9);
-        
-        if nColumns >= 10
-            totalRewards = A(:,10);
-        else
-            totalRewards = nan(numel(timestamps),1);
-        end
-    else
-        error('dsfkjfdgkjdsgkjsfdgjgf');
+        lickometer = nan(numel(timestamps),1);
+    else %if nColumns >= 9
+        successIndices = find(~ismember(state(1:end-1),parser.Results.SuccessStates) & ismember(state(2:end),parser.Results.SuccessStates));
+        phase = A(:,strcmp(columns,'phase'));
+        cuePeriod = A(:,strcmp(columns,'cuePeriod'));
+        cumulativeRewards = A(:,strcmp(columns,'cumulativeRewards'));
+        cumulativeSuccesses = A(:,strcmp(columns,'cumulativeSuccesses'));
+        cumulativeFailures = A(:,strcmp(columns,'cumulativeFailures'));
+        totalRewards = A(:,strcmp(columns,'totalRewards'));
+        lickometer = A(:,strcmp(columns,'lickometer'));
     end
     
     successTimes = timestamps(successIndices);
@@ -75,7 +110,7 @@ function [timestamps,angle,state,threshold,successIndices,successTimes,learningC
     saveFile = sprintf('%s_learning_curve',filePrefix);
     save([saveFile '.mat'],'timestamps','angle','state','threshold','successIndices','successTimes','learningCurve','phase','cuePeriod','cumulativeRewards','cumulativeSuccesses','cumulativeFailures','totalRewards');
     
-    if nargin < 3 || isNoPlot
+    if ~parser.Results.PlotData
         return
     end
        
@@ -97,28 +132,28 @@ function [timestamps,angle,state,threshold,successIndices,successTimes,learningC
     close(gcf);
 end
 
-function A = loadRotencBinaryFile(filename)
+function A = loadRotencBinaryFile(filename,structSize,structFormat,isUnsigned)
     fin = fopen(filename);
     
     fseek(fin,0,1);
     
     nBytes = ftell(fin);
-    structSize = 32;
-    nRows = nBytes/structSize;
+    nRows = floor(nBytes/structSize);
+    
+    if nRows*structSize ~= nBytes
+        warning('structSize does not exactly divide number of bytes.  File may be corrupted.');
+    end
     
     fseek(fin,0,-1);
     
     B = fread(fin,[structSize nRows],'uint8=>uint8');
     
-    bytes = [4 4 1 1 4 4 2 2 2 2];
-    unsigned = [1 0 0 0 0 1 1 1 1 1];
-    
-    cumBytes = [0 cumsum(bytes)];
+    cumBytes = [0 cumsum(structFormat)];
     
     A = zeros(nRows,10);
     
-    for ii = 1:10
-        type = sprintf('%sint%d',repmat('u',1,unsigned(ii)),8*bytes(ii));
+    for ii = 1:numel(structFormat)
+        type = sprintf('%sint%d',repmat('u',1,isUnsigned(ii)),8*structFormat(ii));
         column = reshape(B((cumBytes(ii)+1):cumBytes(ii+1),:),[],1);
         column = typecast(column,type);
         A(:,ii) = double(column);

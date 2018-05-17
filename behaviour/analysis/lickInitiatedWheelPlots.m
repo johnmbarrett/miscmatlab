@@ -1,4 +1,4 @@
-function multiPhaseWheelPlots(isPlotsToBeSaved,isTwoWheels,successStates,isLickometer)
+function lickInitiatedWheelPlots(isPlotsToBeSaved,successStates)
     files = dir('*.BIN'); % TODO : order
     
     if isempty(files)
@@ -36,20 +36,6 @@ function multiPhaseWheelPlots(isPlotsToBeSaved,isTwoWheels,successStates,isLicko
 %     end
 
     phaseColours = [0.8 1 0.8; 1 0.8 0.8; 0.8 0.8 1]; % bi, cw, ccw
-    
-    columns = {'timestamps' 'angle' 'angle' 'state' 'totalRewards'};
-    
-    if isLickometer
-        columns(end+(1:3)) = {'rewardedWheel' 'null' 'lickometer'};
-        columns = columns([1:3 5:8 4]);
-        structSize = 32;
-        structFormat = [4 4 4 4 4 4 4 1];
-        isUnsigned = [true false(1,3) true(1,4)];
-    else
-        structSize = 20;
-        structFormat = [4 4 4 1 2 2 2 1];
-        isUnsigned = [true false(1,7)];
-    end
 
     for ii = 1:numel(files)
         tic;
@@ -58,7 +44,7 @@ function multiPhaseWheelPlots(isPlotsToBeSaved,isTwoWheels,successStates,isLicko
                 successStates = 6:9;
             end
             
-            [timestamps,angle,state,~,successIndices,successTimes,learningCurve,~,~,~,~,~,totalRewards,licks] = loadRotencFile(files{ii},'Columns',columns,'StructSize',structSize,'StructFormat',structFormat,'StructIsUnsigned',isUnsigned,'SuccessStates',successStates);
+            [timestamps,angle,state,~,successIndices,successTimes,learningCurve,~,~,~,~,~,totalRewards] = loadRotencFile(files{ii},'Columns',{'timestamps' 'angle' 'angle' 'state' 'totalRewards'},'StructSize',20,'StructFormat',[4 4 4 1 2 2 2 1],'StructIsUnsigned',[true false(1,7)],'SuccessStates',successStates);
             threshold = 110*ones(size(angle));
             cumulativeRewards = totalRewards; 
             cumulativeSuccesses = totalRewards;
@@ -143,8 +129,7 @@ function multiPhaseWheelPlots(isPlotsToBeSaved,isTwoWheels,successStates,isLicko
                 'rewardPeriodEnds',     cell(nPhases,nNames), ...
                 'turnAngles',           cell(nPhases,nNames), ...
                 'turnDurations',        cell(nPhases,nNames), ...
-                'turnSpeeds',           cell(nPhases,nNames), ...
-                'licks',                cell(nPhases,nNames)  ...
+                'turnSpeeds',           cell(nPhases,nNames)  ...
                 );
         elseif ~isOnePhasePerFile && numel(phaseStarts) ~= nPhases
             fprintf('Check day %s cage %s mouse %s\n',dateString,cageNumberString,names{ii});
@@ -338,8 +323,6 @@ function multiPhaseWheelPlots(isPlotsToBeSaved,isTwoWheels,successStates,isLicko
             else
                 turnBias(jj,nameIndices(ii),:) = (sum(relativeAngle(successIndicesInPhase,:) > 0)-sum(relativeAngle(successIndicesInPhase,:) < 0))/numel(successIndicesInPhase);
             end
-            
-            phaseData(jj,nameIndices(ii)).licks = licks(phaseIndices);
             toc;
         end
     end
