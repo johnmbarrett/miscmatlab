@@ -1,7 +1,8 @@
 classdef SerialFucker
     properties
         Figure
-        SerialPort  serial
+        SerialPort  %serial
+        SerialReader
     end
     
     methods
@@ -21,21 +22,54 @@ classdef SerialFucker
             self.SerialPort = serial(port,'BaudRate',115200);
             fopen(self.SerialPort);
             
+            self.SerialReader = timer('BusyMode','drop','ExecutionMode','fixedSpacing','Period',0.1,'TimerFcn',@self.printSerialBuffer);
+            start(self.SerialReader);
+            
             self.Figure = figure;
-            set(self.Figure,'KeyReleaseFcn',@self.sendKey);
+            set(self.Figure,'KeyPressFcn',@self.sendKey);
+            set(self.Figure,'KeyReleaseFcn',@self.sendTheWordStop);
         end
         
         function delete(self)
             delete(self.Figure);
+            
+            if strcmp(self.SerialReader.Running,'on')
+                stop(self.SerialReader);
+            end
+            
+            delete(self.SerialReader);
             
             if isa(self.SerialPort,'serial') && ischar(get(self.SerialPort,'Status')) && strcmp(get(self.SerialPort,'Status'),'open')
                 fclose(self.SerialPort);
             end
         end
         
+        function printSerialBuffer(self,varargin) 
+            disp('Polling...');
+            
+            while self.SerialPort.BytesAvailable > 0
+                disp(fgetl(self.SerialPort));
+            end
+        end
+        
         function sendKey(self,~,eventData)
-            disp(eventData.Key);
-            fprintf(self.SerialPort,'%s\n',eventData.Key);
+            if numel(eventData.Key) > 1
+                return
+            end
+            
+            keycode = uint16(eventData.Key);
+            
+            if numel(keycode) > 1 || keycode > 255
+                return
+            end
+            
+            disp(['SENT: ' eventData.Key]);
+            fwrite(self.SerialPort,uint8(keycode));
+        end
+        
+        function sendTheWordStop(self,varargin)
+            disp('SENT: STOP');
+            fwrite(self.SerialPort,0);
         end
     end
 end

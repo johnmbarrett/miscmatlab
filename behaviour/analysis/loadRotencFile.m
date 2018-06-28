@@ -44,7 +44,7 @@ function [timestamps,angle,state,threshold,successIndices,successTimes,learningC
     nColumns = numel(columns);
     
     if strncmpi(parser.Results.Format,'b',1) || any(strcmpi(ext,{'.bin' '.dat'}))
-        A = loadRotencBinaryFile(filename,parser.Results.StructSize,parser.Results.StructFormat,parser.Results.StructIsUnsigned);
+        A = loadStructArrayFile(filename,parser.Results.StructSize,parser.Results.StructFormat,parser.Results.StructIsUnsigned);
     else
         [A,nColumns] = loadRotencTextFile(filename,nColumns);
         
@@ -133,31 +133,7 @@ function [timestamps,angle,state,threshold,successIndices,successTimes,learningC
 end
 
 function A = loadRotencBinaryFile(filename,structSize,structFormat,isUnsigned)
-    fin = fopen(filename);
-    
-    fseek(fin,0,1);
-    
-    nBytes = ftell(fin);
-    nRows = floor(nBytes/structSize);
-    
-    if nRows*structSize ~= nBytes
-        warning('structSize does not exactly divide number of bytes.  File may be corrupted.');
-    end
-    
-    fseek(fin,0,-1);
-    
-    B = fread(fin,[structSize nRows],'uint8=>uint8');
-    
-    cumBytes = [0 cumsum(structFormat)];
-    
-    A = zeros(nRows,10);
-    
-    for ii = 1:numel(structFormat)
-        type = sprintf('%sint%d',repmat('u',1,isUnsigned(ii)),8*structFormat(ii));
-        column = reshape(B((cumBytes(ii)+1):cumBytes(ii+1),:),[],1);
-        column = typecast(column,type);
-        A(:,ii) = double(column);
-    end
+    A = loadStructArrayFile(filename,structSize,structFormat,isUnsigned);
     
     dt = abs(diff(A(:,2))./diff(A(:,1)));
     bad = dt > 4096/1e3; % greater than one full turn per millisecond is obviously a glitch
