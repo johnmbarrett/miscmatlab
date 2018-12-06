@@ -18,11 +18,17 @@ function tf = registerImages(I,J)
     yoff = 0;
     scaleFactor = 1;
     theta = 0;
-    alpha = 1;
+    alpha = 0.5;
     nargoutCaller = nargout;
     currentKey = '';
+    isDoing = false;
     
     function doAction(varargin)
+        if isDoing
+            return
+        end
+        
+        isDoing = true;
 %         disp(['The key is ' currentKey]);
         
         switch currentKey
@@ -43,14 +49,17 @@ function tf = registerImages(I,J)
             case 'downarrow'
                 scaleFactor = scaleFactor - 0.01;
             case 'add'
-                alpha = min(1,alpha + 0.01);
+                alpha = min(1,alpha + 0.05);
             case 'subtract'
-                alpha = max(0,alpha - 0.01);
+                alpha = max(0,alpha - 0.05);
             otherwise
+                isDoing = false;
                 return
         end
         
         h = updateSecondImage(h,J,xoff,yoff,scaleFactor,theta,alpha);
+        
+        isDoing = false;
     end
        
     function handleKey(fig,eventData)
@@ -71,33 +80,33 @@ function tf = registerImages(I,J)
 %                 disp('We are pressing a key now');
                 currentKey = eventData.Key;
                 
-                if strcmp(t.Running,'off')
-                    start(t);
-                end
+%                 if strcmp(t.Running,'off')
+%                     start(t);
+%                 end
         end
     end
 
-    function releaseKey(varargin)
-%         disp('We have stopped pressing the key');
-        stop(t);
-    end
+%     function releaseKey(varargin)
+% %         disp('We have stopped pressing the key');
+%         stop(t);
+%     end
 
     function stopTimersAndCloseFig(fig)
-        if isvalid(t) && ~strcmp(t.Running,'off')
-            stop(t);
-        end
-        
-        delete(t);
+%         if isvalid(t) && ~strcmp(t.Running,'off')
+%             stop(t);
+%         end
+%         
+%         delete(t);
         delete(fig);
     end
 
     set(fig,'KeyPressFcn',@handleKey);
-    set(fig,'KeyReleaseFcn',@releaseKey);
-    set(fig,'CloseRequestFcn',@(varargin) stopTimersAndCloseFig(fig));
+    set(fig,'KeyReleaseFcn',@doAction); %@releaseKey);
+%     set(fig,'CloseRequestFcn',@(varargin) stopTimersAndCloseFig(fig));
     
-    t = timer('BusyMode','drop','ExecutionMode','fixedSpacing','Period',0.15,'StartDelay',0.05,'TimerFcn',@doAction);
-    
-    cleanupTimer = onCleanup(@(varargin) delete(t));
+%     t = timer('BusyMode','drop','ExecutionMode','fixedSpacing','Period',0.01,'StartDelay',0.05,'TimerFcn',@doAction);
+%     
+%     cleanupTimer = onCleanup(@(varargin) delete(t));
     
     if nargout > 0
         uiwait(fig);
@@ -125,6 +134,7 @@ end
 
 function h = updateSecondImage(h,J,xoff,yoff,scaleFactor,theta,alpha)
 %     tic;
+    tic;
     tf = makeAffineTransformation(xoff,yoff,scaleFactor,deg2rad(theta));
     
     ref = imref2d(size(J));
@@ -134,5 +144,6 @@ function h = updateSecondImage(h,J,xoff,yoff,scaleFactor,theta,alpha)
     delete(h);
     h = displayImage(K,ref);
     set(h,'FaceAlpha',alpha);
+    toc;
 %     toc;
 end
