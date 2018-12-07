@@ -49,7 +49,10 @@ function responseParams = calculateLinearArrayResponseParams(folder,varargin) % 
     addParameter(parser,'TransposeData',false,@(x) islogical(x) && isscalar(x));
     parser.parse(varargin{:});
     
-    addParameter(parser,'ProbeNames',NaN,@(x) iscellstr(x) && numel(x) == size(sdfs,2)+parser.Results.TransposeProbes); %#ok<ISCLSTR>
+    defaultConditionNames = arrayfun(@(ii) sprintf('Condition %d',ii),1:size(sdfs,3),'UniformOutput',false);
+    defaultProbeNames = arrayfun(@(ii) sprintf('Probe %d',ii),1:size(sdfs,2),'UniformOutput',false);
+    addParameter(parser,'ConditionNames',defaultConditionNames,@(x) iscellstr(x) && numel(x) == size(sdfs,3)); %#ok<ISCLSTR>
+    addParameter(parser,'ProbeNames',defaultProbeNames,@(x) iscellstr(x) && numel(x) == size(sdfs,2)); %#ok<ISCLSTR>
     
     responseParams(1).threshold = responseParams(1).mu+parser.Results.SDThreshold*responseParams(1).sigma;
     parser.parse(varargin{:});
@@ -99,21 +102,17 @@ function responseParams = calculateLinearArrayResponseParams(folder,varargin) % 
             plotData(1).(fields{ii}) = permute(plotData(1).(fields{ii}),[2 1 3:ndims(plotData(1).(fields{ii}))]);
         end
         
-        tracePrefix = 'Condition';
+        traceNames = parser.Results.ConditionNames;
+        subplotNames = parser.Results.ProbeNames;
     else
-        tracePrefix = 'Probe';
+        traceNames = parser.Results.ProbeNames;
+        subplotNames = parser.Results.ConditionNames;
     end
     
     resultSize = size(plotData(1).peakAmplitudes);
     
     [rows,cols] = subplots(resultSize(2));
     nFigures = prod(resultSize(3:end));
-    
-    traceNames = parser.Results.ProbeNames;
-    
-    if isnan(traceNames)
-        traceNames = arrayfun(@(ii) sprintf('%s %d',tracePrefix,ii),1:size(sdfs,2),'UniformOutput',false);
-    end
     
     t = ((1:size(sdfs,1))-responseStartIndex+1)/sampleRate;
     
@@ -133,6 +132,8 @@ function responseParams = calculateLinearArrayResponseParams(folder,varargin) % 
 
         for jj = 1:resultSize(2)
             subplot(rows,cols,jj);
+            
+            title(subplotNames{jj});
 
             hold on;
             
