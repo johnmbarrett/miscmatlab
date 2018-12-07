@@ -46,7 +46,7 @@ function responseParams = calculateLinearArrayResponseParams(folder,varargin) % 
     parser.KeepUnmatched = true;
     addParameter(parser,'NoPlot',false,@(x) islogical(x) && isscalar(x));
     addParameter(parser,'SDThreshold',3,@(x) isscalar(x) && isnumeric(x) && isreal(x) && isfinite(x) && x >= 0);
-    addParameter(parser,'TransposePlots',false,@(x) islogical(x) && isscalar(x));
+    addParameter(parser,'TransposeData',false,@(x) islogical(x) && isscalar(x));
     parser.parse(varargin{:});
     
     addParameter(parser,'ProbeNames',NaN,@(x) iscellstr(x) && numel(x) == size(sdfs,2)+parser.Results.TransposeProbes); %#ok<ISCLSTR>
@@ -90,14 +90,9 @@ function responseParams = calculateLinearArrayResponseParams(folder,varargin) % 
         return
     end
     
-    resultSize = size(responseParams(1).peakAmplitudes);
-    
-    [rows,cols] = subplots(resultSize(2));
-    nFigures = prod(resultSize(3:end));
-    
     plotData = responseParams;
     
-    if parser.Results.TransposePlots
+    if parser.Results.TransposeData
         sdfs = permute(sdfs,[1 3 2 4:ndims(sdfs)]);
         
         for ii = 1:numel(fields)
@@ -108,6 +103,11 @@ function responseParams = calculateLinearArrayResponseParams(folder,varargin) % 
     else
         tracePrefix = 'Probe';
     end
+    
+    resultSize = size(plotData(1).peakAmplitudes);
+    
+    [rows,cols] = subplots(resultSize(2));
+    nFigures = prod(resultSize(3:end));
     
     traceNames = parser.Results.ProbeNames;
     
@@ -147,8 +147,8 @@ function responseParams = calculateLinearArrayResponseParams(folder,varargin) % 
             yy(2) = max(yy(2),max(ylim));
 
             for kk = 1:size(sdfs,2)
-                t1 = responseParams(1).responseStartTime(kk,jj,ii);
-                t2 = responseParams(1).responseEndTime(kk,jj,ii);
+                t1 = plotData(1).responseStartTime(kk,jj,ii);
+                t2 = plotData(1).responseEndTime(kk,jj,ii);
                 tidx = find(t >= t1 & t <= t2);
                 fill([t1 t(tidx) t2]',[0;sdfs(tidx,kk,jj,ii);0],colours(kk,:),'EdgeColor','none','FaceAlpha',0.25);
                 
