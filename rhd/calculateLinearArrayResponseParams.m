@@ -4,7 +4,7 @@ function responseParams = calculateLinearArrayResponseParams(folder,varargin) % 
     end
     
     if exist(folder,'dir')
-        load([folder '\psth.mat'],'sdfs');
+        load([folder '\psth.mat'],'sdfs','params');
     elseif exist(folder,'file')
         m = matfile(folder);
         folder = fileparts(folder);
@@ -14,6 +14,7 @@ function responseParams = calculateLinearArrayResponseParams(folder,varargin) % 
         end
         
         sdfs = m.sdfs;
+        params = m.params;
     else
         error('Cannot locate PSTH file for folder %s\n',folder);
     end
@@ -50,7 +51,7 @@ function responseParams = calculateLinearArrayResponseParams(folder,varargin) % 
     addParameter(parser,'TransposeData',false,@(x) islogical(x) && isscalar(x));
     parser.parse(varargin{:});
     
-    defaultConditionNames = arrayfun(@(ii) sprintf('Condition %d',ii),1:size(sdfs,3),'UniformOutput',false);
+    defaultConditionNames = getConditionNames(params);
     defaultProbeNames = arrayfun(@(ii) sprintf('Probe %d',ii),1:size(sdfs,2),'UniformOutput',false);
     addParameter(parser,'ConditionNames',defaultConditionNames,@(x) iscellstr(x) && numel(x) == size(sdfs,3)); %#ok<ISCLSTR>
     addParameter(parser,'ProbeNames',defaultProbeNames,@(x) iscellstr(x) && numel(x) == size(sdfs,2)); %#ok<ISCLSTR>
@@ -119,7 +120,7 @@ function responseParams = calculateLinearArrayResponseParams(folder,varargin) % 
     
     t = ((1:size(sdfs,1))-responseStartIndex+1)/sampleRate;
     
-    markers = 'sd^+x';
+    markers = 'osd^+x';
     percentiles = [10 50 90];
     directions = {'Rising' 'Falling'};
     
@@ -128,7 +129,7 @@ function responseParams = calculateLinearArrayResponseParams(folder,varargin) % 
     
     yy = [Inf -Inf];
     
-    hs = gobjects(resultSize(1)+8,1);
+    hs = gobjects(resultSize(1)+10,1);
     
     for ii = 1:nFigures
         figure;
@@ -156,13 +157,13 @@ function responseParams = calculateLinearArrayResponseParams(folder,varargin) % 
                 tidx = find(t >= t1 & t <= t2);
                 fill([t1 t(tidx) t2]',[0;sdfs(tidx,kk,jj,ii);0],colours(kk,:),'EdgeColor','none','FaceAlpha',0.25);
                 
-                plot(plotData(1).peakLatencies(kk,jj,ii),plotData.peakAmplitudes(kk,jj,ii),'Color',colours(kk,:),'Marker','o');
+                plot(plotData(1).peakLatencies(kk,jj,ii),plotData.peakAmplitudes(kk,jj,ii),'Color',colours(kk,:),'Marker',markers(1));
                 
                 for ll = 1:3
                     for mm = 1:2
                         x(ll,mm) = plotData(1).(sprintf('peak%dTime%s',percentiles(ll),directions{mm}))(kk,jj,ii);
                         y(ll,mm) = interp1(t,sdfs(:,kk,jj,ii),x(ll,mm));
-                        plot(x(ll,mm),y(ll,mm),'Color',colours(kk,:),'Marker',markers(ll));
+                        plot(x(ll,mm),y(ll,mm),'Color',colours(kk,:),'Marker',markers(ll+1));
                     end
                 end
                 
@@ -182,15 +183,15 @@ function responseParams = calculateLinearArrayResponseParams(folder,varargin) % 
                     plot(t(idx),u,'Color',3*colours(kk,:)/4,'LineStyle','--');
                     
                     if ll == 1
-                        plot(plotData(1).interpolatedLatencies(kk,jj,ii),interp1(t(idx),u,plotData(1).interpolatedLatencies(kk,jj,ii)),'Color',colours(kk,:),'Marker',markers(4));
+                        plot(plotData(1).interpolatedLatencies(kk,jj,ii),interp1(t(idx),u,plotData(1).interpolatedLatencies(kk,jj,ii)),'Color',colours(kk,:),'Marker',markers(5));
                     end
                 end
                 
                 plot(x(2,:),y(2,:),'Color',colours(kk,:),'LineStyle',':');
                 
                 plot(t([1 end]),plotData(1).threshold(kk,jj,ii)*[1 1],'Color',3*colours(kk,:)/4,'LineStyle','-.');
-                plot(plotData(1).responseStartTime(kk,jj,ii),interp1(t,sdfs(:,kk,jj,ii),plotData(1).responseStartTime(kk,jj,ii)),'Color',colours(kk,:),'Marker',markers(5));
-                plot(plotData(1).responseEndTime(kk,jj,ii),interp1(t,sdfs(:,kk,jj,ii),plotData(1).responseEndTime(kk,jj,ii)),'Color',colours(kk,:),'Marker',markers(5));
+                plot(plotData(1).responseStartTime(kk,jj,ii),interp1(t,sdfs(:,kk,jj,ii),plotData(1).responseStartTime(kk,jj,ii)),'Color',colours(kk,:),'Marker',markers(6));
+                plot(plotData(1).responseEndTime(kk,jj,ii),interp1(t,sdfs(:,kk,jj,ii),plotData(1).responseEndTime(kk,jj,ii)),'Color',colours(kk,:),'Marker',markers(6));
             end
             
             xlabel('Time from stimulus onset (s)');
@@ -204,7 +205,7 @@ function responseParams = calculateLinearArrayResponseParams(folder,varargin) % 
             
             hs(resultSize(1)+4) = fill(NaN,NaN,[0 0 0],'EdgeColor','none','FaceAlpha',0.25);
             
-            for kk = 1:5
+            for kk = 1:6
                 hs(resultSize(1)+4+kk) = plot(NaN,NaN,'Color','k','LineStyle','none','Marker',markers(kk));
             end
             
@@ -216,7 +217,7 @@ function responseParams = calculateLinearArrayResponseParams(folder,varargin) % 
                     set(a,'Visible','off');
                 end
                 
-                legend(hs,[traceNames {'Stim Onset' '10-90% peak slope' sprintf('mean+%dSD threshold',parser.Results.SDThreshold) 'Above threshold response'} arrayfun(@(ii) sprintf('%d%% of peak',ii),percentiles,'UniformOutput',false) {'10-90% peak baseline crossing' 'SD threshold crossings'}],'Location','NorthWest');
+                legend(hs,[traceNames {'Stim Onset' '10-90% peak slope' sprintf('mean+%dSD threshold',parser.Results.SDThreshold) 'Above threshold response' 'Peak response'} arrayfun(@(ii) sprintf('%d%% of peak',ii),percentiles,'UniformOutput',false) {'10-90% peak baseline crossing' 'SD threshold crossings'}],'Location','NorthWest');
             end
         end
         
@@ -245,9 +246,20 @@ function responseParams = calculateLinearArrayResponseParams(folder,varargin) % 
             subplot(rows,cols,jj);
             
             fieldIndex = ternaryop(isParamsAsSubplots,jj,ii);
-            hs = plot(coefficients(fieldIndex)*plotData(1).(fields{fieldIndex})(:,:,ternaryop(isParamsAsSubplots,1,jj)));
+            hs = plot(coefficients(fieldIndex)*plotData(1).(fields{fieldIndex})(:,:,ternaryop(isParamsAsSubplots,1,jj)),'Marker','o');
             
             xlim([0.5 resultSize(1)+0.5]);
+            
+            set(gca,'XTick',[]);
+            
+            yy = ylim;
+            ylim(yy); % stop ylim changing when resizing
+            
+            for kk = 1:resultSize(1)
+                % TODO : use actual param values as x-values if there's
+                % only one parameter being varied
+                text(kk,yy(1)-0.05*diff(yy),traceNames{kk},'FontSize',8,'HorizontalAlignment','right','Rotation',45,'VerticalAlignment','middle');
+            end
             
             ylabel(ylabels{fieldIndex});
             
