@@ -95,13 +95,13 @@ function responseParams = calculateLinearArrayResponseParams(folder,varargin) % 
     [rows,cols] = subplots(resultSize(2));
     nFigures = prod(resultSize(3:end));
     
-    plotParams = responseParams;
+    plotData = responseParams;
     
     if parser.Results.TransposePlots
         sdfs = permute(sdfs,[1 3 2 4:ndims(sdfs)]);
         
         for ii = 1:numel(fields)
-            plotParams(1).(fields{ii}) = permute(plotParams(1).(fields{ii}),[2 1 3:ndims(plotParams(1).(fields{ii}))]);
+            plotData(1).(fields{ii}) = permute(plotData(1).(fields{ii}),[2 1 3:ndims(plotData(1).(fields{ii}))]);
         end
         
         tracePrefix = 'Condition';
@@ -152,17 +152,17 @@ function responseParams = calculateLinearArrayResponseParams(folder,varargin) % 
                 tidx = find(t >= t1 & t <= t2);
                 fill([t1 t(tidx) t2]',[0;sdfs(tidx,kk,jj,ii);0],colours(kk,:),'EdgeColor','none','FaceAlpha',0.25);
                 
-                plot(plotParams(1).peakLatencies(kk,jj,ii),plotParams.peakAmplitudes(kk,jj,ii),'Color',colours(kk,:),'Marker','o');
+                plot(plotData(1).peakLatencies(kk,jj,ii),plotData.peakAmplitudes(kk,jj,ii),'Color',colours(kk,:),'Marker','o');
                 
                 for ll = 1:3
                     for mm = 1:2
-                        x(ll,mm) = plotParams(1).(sprintf('peak%dTime%s',percentiles(ll),directions{mm}))(kk,jj,ii);
+                        x(ll,mm) = plotData(1).(sprintf('peak%dTime%s',percentiles(ll),directions{mm}))(kk,jj,ii);
                         y(ll,mm) = interp1(t,sdfs(:,kk,jj,ii),x(ll,mm));
                         plot(x(ll,mm),y(ll,mm),'Color',colours(kk,:),'Marker',markers(ll));
                     end
                 end
                 
-                peakIndex = plotParams(1).peakLatencies(kk,jj,ii)*sampleRate+responseStartIndex-1;
+                peakIndex = plotData(1).peakLatencies(kk,jj,ii)*sampleRate+responseStartIndex-1;
                 
                 for ll = 1:2
                     m = diff(y([1 3],ll))/diff(x([1 3],ll));
@@ -178,15 +178,15 @@ function responseParams = calculateLinearArrayResponseParams(folder,varargin) % 
                     plot(t(idx),u,'Color',3*colours(kk,:)/4,'LineStyle','--');
                     
                     if ll == 1
-                        plot(plotParams(1).interpolatedLatencies(kk,jj,ii),interp1(t(idx),u,plotParams(1).interpolatedLatencies(kk,jj,ii)),'Color',colours(kk,:),'Marker',markers(4));
+                        plot(plotData(1).interpolatedLatencies(kk,jj,ii),interp1(t(idx),u,plotData(1).interpolatedLatencies(kk,jj,ii)),'Color',colours(kk,:),'Marker',markers(4));
                     end
                 end
                 
                 plot(x(2,:),y(2,:),'Color',colours(kk,:),'LineStyle',':');
                 
-                plot(t([1 end]),plotParams(1).threshold(kk,jj,ii)*[1 1],'Color',3*colours(kk,:)/4,'LineStyle','-.');
-                plot(plotParams(1).responseStartTime(kk,jj,ii),interp1(t,sdfs(:,kk,jj,ii),plotParams(1).responseStartTime(kk,jj,ii)),'Color',colours(kk,:),'Marker',markers(5));
-                plot(plotParams(1).responseEndTime(kk,jj,ii),interp1(t,sdfs(:,kk,jj,ii),plotParams(1).responseEndTime(kk,jj,ii)),'Color',colours(kk,:),'Marker',markers(5));
+                plot(t([1 end]),plotData(1).threshold(kk,jj,ii)*[1 1],'Color',3*colours(kk,:)/4,'LineStyle','-.');
+                plot(plotData(1).responseStartTime(kk,jj,ii),interp1(t,sdfs(:,kk,jj,ii),plotData(1).responseStartTime(kk,jj,ii)),'Color',colours(kk,:),'Marker',markers(5));
+                plot(plotData(1).responseEndTime(kk,jj,ii),interp1(t,sdfs(:,kk,jj,ii),plotData(1).responseEndTime(kk,jj,ii)),'Color',colours(kk,:),'Marker',markers(5));
             end
             
             xlabel('Time from stimulus onset (s)');
