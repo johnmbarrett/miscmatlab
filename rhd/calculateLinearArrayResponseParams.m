@@ -49,7 +49,10 @@ function responseParams = calculateLinearArrayResponseParams(folder,varargin) % 
     addParameter(parser,'TransposePlots',false,@(x) islogical(x) && isscalar(x));
     parser.parse(varargin{:});
     
+    addParameter(parser,'ProbeNames',NaN,@(x) iscellstr(x) && numel(x) == size(sdfs,2)+parser.Results.TransposeProbes); %#ok<ISCLSTR>
+    
     responseParams(1).threshold = responseParams(1).mu+parser.Results.SDThreshold*responseParams(1).sigma;
+    parser.parse(varargin{:});
     
     % TODO : this next bit might reasonably be moved into shepherdlabephys
     [thresholdCrossings,~,polarities] = findThresholdCrossings(sdfs(responseStartIndex:responseEndIndex,:,:,:),repmat(responseParams(1).threshold,[ones(1,ndims(sdfs)) 2]),'both');
@@ -92,13 +95,29 @@ function responseParams = calculateLinearArrayResponseParams(folder,varargin) % 
     [rows,cols] = subplots(resultSize(2));
     nFigures = prod(resultSize(3:end));
     
+    plotParams = responseParams;
+    
     if parser.Results.TransposePlots
         sdfs = permute(sdfs,[1 3 2 4:ndims(sdfs)]);
+        
+        for ii = 1:numel(fields)
+            plotParams(1).(fields{ii}) = permute(plotParams(1).(fields{ii}),[2 1 3:ndims(plotParams(1).(fields{ii}))]);
+        end
+        
+        tracePrefix = 'Condition';
+    else
+        tracePrefix = 'Probe';
+    end
+    
+    traceNames = parser.Results.ProbeNames;
+    
+    if isnan(traceNames)
+        traceNames = arrayfun(@(ii) sprintf('%s %d',tracePrefix,ii),1:size(sdfs,2),'UniformOutput',false);
     end
     
     t = ((1:size(sdfs,1))-responseStartIndex+1)/sampleRate;
     
-    markers = 'sd^s';
+    markers = 'sd^+x';
     percentiles = [10 50 90];
     directions = {'Rising' 'Falling'};
     
@@ -106,6 +125,8 @@ function responseParams = calculateLinearArrayResponseParams(folder,varargin) % 
     y = nan(3,2);
     
     yy = [Inf -Inf];
+    
+    hs = gobjects(resultSize(1)+8,1);
     
     for ii = 1:nFigures
         figure;
@@ -120,23 +141,28 @@ function responseParams = calculateLinearArrayResponseParams(folder,varargin) % 
                 colours = repmat(colours,ceil(size(sdfs,2)/size(colours,1)),1);
             end
 
-            plot(t,sdfs(:,:,jj,ii));
+            hs(1:resultSize(1)) = plot(t,sdfs(:,:,jj,ii));
             
             yy(1) = min(yy(1),min(ylim));
             yy(2) = max(yy(2),max(ylim));
 
             for kk = 1:size(sdfs,2)
-                plot(responseParams(1).peakLatencies(kk,jj,ii),responseParams.peakAmplitudes(kk,jj,ii),'Color',colours(kk,:),'Marker','o');
+                t1 = responseParams(1).responseStartTime(kk,jj,ii);
+                t2 = responseParams(1).responseEndTime(kk,jj,ii);
+                tidx = find(t >= t1 & t <= t2);
+                fill([t1 t(tidx) t2]',[0;sdfs(tidx,kk,jj,ii);0],colours(kk,:),'EdgeColor','none','FaceAlpha',0.25);
+                
+                plot(plotParams(1).peakLatencies(kk,jj,ii),plotParams.peakAmplitudes(kk,jj,ii),'Color',colours(kk,:),'Marker','o');
                 
                 for ll = 1:3
                     for mm = 1:2
-                        x(ll,mm) = responseParams(1).(sprintf('peak%dTime%s',percentiles(ll),directions{mm}))(kk,jj,ii);
+                        x(ll,mm) = plotParams(1).(sprintf('peak%dTime%s',percentiles(ll),directions{mm}))(kk,jj,ii);
                         y(ll,mm) = interp1(t,sdfs(:,kk,jj,ii),x(ll,mm));
                         plot(x(ll,mm),y(ll,mm),'Color',colours(kk,:),'Marker',markers(ll));
                     end
                 end
                 
-                peakIndex = responseParams(1).peakLatencies(kk,jj,ii)*sampleRate+responseStartIndex-1;
+                peakIndex = plotParams(1).peakLatencies(kk,jj,ii)*sampleRate+responseStartIndex-1;
                 
                 for ll = 1:2
                     m = diff(y([1 3],ll))/diff(x([1 3],ll));
@@ -152,18 +178,42 @@ function responseParams = calculateLinearArrayResponseParams(folder,varargin) % 
                     plot(t(idx),u,'Color',3*colours(kk,:)/4,'LineStyle','--');
                     
                     if ll == 1
-                        plot(responseParams(1).interpolatedLatencies(kk,jj,ii),interp1(t(idx),u,responseParams(1).interpolatedLatencies(kk,jj,ii)),'Color',colours(kk,:),'Marker','*');
+                        plot(plotParams(1).interpolatedLatencies(kk,jj,ii),interp1(t(idx),u,plotParams(1).interpolatedLatencies(kk,jj,ii)),'Color',colours(kk,:),'Marker',markers(4));
                     end
                 end
                 
                 plot(x(2,:),y(2,:),'Color',colours(kk,:),'LineStyle',':');
                 
-                plot(t([1 end]),responseParams(1).threshold(kk,jj,ii)*[1 1],'Color',3*colours(kk,:)/4,'LineStyle','-.');
-                plot(responseParams(1).responseStartTime(kk,jj,ii),interp1(t,sdfs(:,kk,jj,ii),responseParams(1).responseStartTime(kk,jj,ii)),'Color',colours(kk,:),'Marker','x');
-                plot(responseParams(1).responseEndTime(kk,jj,ii),interp1(t,sdfs(:,kk,jj,ii),responseParams(1).responseEndTime(kk,jj,ii)),'Color',colours(kk,:),'Marker','x');
+                plot(t([1 end]),plotParams(1).threshold(kk,jj,ii)*[1 1],'Color',3*colours(kk,:)/4,'LineStyle','-.');
+                plot(plotParams(1).responseStartTime(kk,jj,ii),interp1(t,sdfs(:,kk,jj,ii),plotParams(1).responseStartTime(kk,jj,ii)),'Color',colours(kk,:),'Marker',markers(5));
+                plot(plotParams(1).responseEndTime(kk,jj,ii),interp1(t,sdfs(:,kk,jj,ii),plotParams(1).responseEndTime(kk,jj,ii)),'Color',colours(kk,:),'Marker',markers(5));
             end
             
-             xlim(t([baselineStartIndex responseEndIndex]));
+            xlabel('Time from stimulus onset (s)');
+            xlim(t([baselineStartIndex responseEndIndex]));
+            
+            ylabel('Events/s');
+            
+            hs(resultSize(1)+1) = line([0 0],[min(sdfs(:)) max(sdfs(:))],'Color','k');
+            hs(resultSize(1)+2) = plot(NaN,NaN,'Color','k','LineStyle','--');
+            hs(resultSize(1)+3) = plot(NaN,NaN,'Color','k','LineStyle','-.');
+            
+            hs(resultSize(1)+4) = fill(NaN,NaN,[0 0 0],'EdgeColor','none','FaceAlpha',0.25);
+            
+            for kk = 1:5
+                hs(resultSize(1)+4+kk) = plot(NaN,NaN,'Color','k','LineStyle','none','Marker',markers(kk));
+            end
+            
+            if jj == 1
+                if rows*cols > resultSize(2)
+                    a = subplot(rows,cols,resultSize(2)+1);
+                    hs = copyobj(hs,a);
+                    xlim(a,t(1)-[1000 1]);
+                    set(a,'Visible','off');
+                end
+                
+                legend(hs,[traceNames {'Stim Onset' '10-90% peak slope' sprintf('mean+%dSD threshold',parser.Results.SDThreshold) 'Above threshold response'} arrayfun(@(ii) sprintf('%d%% of peak',ii),percentiles,'UniformOutput',false) {'10-90% peak baseline crossing' 'SD threshold crossings'}],'Location','NorthWest');
+            end
         end
         
         set(findobj(gcf,'Type','Axes'),'YLim',yy);
