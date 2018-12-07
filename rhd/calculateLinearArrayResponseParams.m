@@ -7,6 +7,7 @@ function responseParams = calculateLinearArrayResponseParams(folder,varargin) % 
         load([folder '\psth.mat'],'sdfs');
     elseif exist(folder,'file')
         m = matfile(folder);
+        folder = fileparts(folder);
         
         if ~all(cellfun(@(s) isfield(m,s),{'params' 'psths' 'sdfs'}))
             error('Unable to understand contents of file %s\n',folder);
@@ -88,6 +89,8 @@ function responseParams = calculateLinearArrayResponseParams(folder,varargin) % 
     for ii = 1:numel(fields)
         responseParams(1).(fields{ii}) = permute(responseParams(1).(fields{ii}),[2 3 4 1]);
     end
+    
+    save([folder '\response_params.mat'],'-struct','responseParams');
     
     if parser.Results.NoPlot
         return
