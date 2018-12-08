@@ -217,7 +217,7 @@ function responseParams = calculateLinearArrayResponseParams(folder,varargin) % 
                     set(a,'Visible','off');
                 end
                 
-                legend(hs,[traceNames {'Stim Onset' '10-90% peak slope' sprintf('mean+%dSD threshold',parser.Results.SDThreshold) 'Above threshold response' 'Peak response'} arrayfun(@(ii) sprintf('%d%% of peak',ii),percentiles,'UniformOutput',false) {'10-90% peak baseline crossing' 'SD threshold crossings'}],'Location','NorthWest');
+                legend(hs,[ternaryop(all(cellfun(@isempty,traceNames)),{'Response'},traceNames) {'Stim Onset' '10-90% peak slope' sprintf('mean+%dSD threshold',parser.Results.SDThreshold) 'Above threshold response' 'Peak response'} arrayfun(@(ii) sprintf('%d%% of peak',ii),percentiles,'UniformOutput',false) {'10-90% peak baseline crossing' 'SD threshold crossings'}],'Location','NorthWest');
             end
         end
         
