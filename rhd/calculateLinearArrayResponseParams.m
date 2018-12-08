@@ -222,6 +222,8 @@ function responseParams = calculateLinearArrayResponseParams(folder,varargin) % 
         end
         
         set(findobj(gcf,'Type','Axes'),'YLim',yy);
+        
+        jbsavefig(gcf,'%s\\sdf_with_response_params_by_%s%s',folder,ternaryop(parser.Results.TransposeData,'probe','condition'),ternaryop(nFigures==1,'',sprintf('_%d',ii)));
     end
     
     nSubplots = size(plotData(1).peakAmplitudes,3); % don't use resultSize because it's not guaranteed to have enough elements
@@ -274,5 +276,7 @@ function responseParams = calculateLinearArrayResponseParams(folder,varargin) % 
                 legend(hs,subplotNames,'Location','NorthWest');
             end
         end
+        
+        jbsavefig(gcf,'%s\\response_params%s_by_%s',folder,ternaryop(isParamsAsSubplots,'',['_' fields{ii}]),ternaryop(parser.Results.TransposeData,'probe','condition'));
     end
 end
