@@ -8,7 +8,6 @@ function plotLinearArrayResponseParams(plotData,xTickLabels,lineNames,saveFileSu
         nSubplots = numel(fields);
         nFigures = 1;
     else
-        error('This hasn''t been tested yet.');
         nFigures = numel(fields);
     end
     
