@@ -82,13 +82,23 @@ fields = fieldnames(responseParams(1));
 allResponseParams = struct([]);
 
 for ii = 1:numel(fields)
-    allResponseParams(1).(fields{ii}) = cell(3,max(vertcat(stimulusParamIndices{:})),max(bodyPartIndices));
+    allResponseParams(1).(fields{ii}) = cell(max(vertcat(stimulusParamIndices{:})),3,max(bodyPartIndices));
     
     for jj = 1:nExperiments
         for kk = 1:nParamsPerRecording(jj)
             for ll = 1:3
-                allResponseParams(1).(fields{ii}){ll,stimulusParamIndices{jj}(kk),bodyPartIndices(jj)}(end+1) = responseParams(jj).(fields{ii})(ll,kk);
+                allResponseParams(1).(fields{ii}){stimulusParamIndices{jj}(kk),ll,bodyPartIndices(jj)}(end+1) = responseParams(jj).(fields{ii})(ll,kk); % honestly I should just make the transpose the default option
             end
         end
     end
 end
+
+medianResponseParams = allResponseParams;
+
+for ii = 1:numel(fields)
+    medianResponseParams.(fields{ii}) = cellfun(@nanmedian,allResponseParams.(fields{ii}));
+end
+
+%%
+
+plotLinearArrayResponseParams(medianResponseParams,getConditionNames(allStimulusParams),probeNames,'probe');
