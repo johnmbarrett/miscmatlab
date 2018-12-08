@@ -21,9 +21,9 @@ for ii = 1:numel(uniqueDates)
             processRHDFiles(experimentFolder,sprintf('%s\\%s',experimentFolder,experiments.ParamFile{jj}),channelsPerProbe,probeVersions);
         end
         
-        if false && exist('.\DataMatrix\psth.mat','file')
+        if exist('.\DataMatrix\psth.mat','file')
             movefile('.\DataMatrix\psth.mat','.\psth.mat');
-        elseif true || ~exist('.\psth.mat','file')
+        elseif ~exist('.\psth.mat','file')
             for kk = 1:2
                 probeNames = strsplit(experiments.ProbeNames{jj},' ');
                 
@@ -44,10 +44,8 @@ for ii = 1:numel(uniqueDates)
             end
         end
         
-        continue
-        
-        if ~exist('.\response_params.mat','file')
-            calculateLinearArrayResponseParams(experimentFolder);
+        if true || ~exist('.\response_params.mat','file')
+            calculateLinearArrayResponseParams(experimentFolder,'ResponseStartIndex',101,'ResponseEndIndex',200,'TransposeData',true,'ProbeNames',probeNames);
         end
     end
 end
