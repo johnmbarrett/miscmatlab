@@ -21,9 +21,9 @@ for ii = 1:numel(uniqueDates)
             processRHDFiles(experimentFolder,sprintf('%s\\%s',experimentFolder,experiments.ParamFile{jj}),channelsPerProbe,probeVersions);
         end
         
-        if exist('.\DataMatrix\psth.mat','file')
+        if false && exist('.\DataMatrix\psth.mat','file')
             movefile('.\DataMatrix\psth.mat','.\psth.mat');
-        elseif ~exist('.\psth.mat','file')
+        elseif true || ~exist('.\psth.mat','file')
             for kk = 1:2
                 probeNames = strsplit(experiments.ProbeNames{jj},' ');
                 
@@ -35,7 +35,7 @@ for ii = 1:numel(uniqueDates)
                     includeChannels = {eval(includeChannels)};
                 end
                 
-                intanPSTHPlots(experimentFolder,'CrudeDeartifacting',true,'IncludeProbes',includeChannels,'ProbeNames',probeNames,extraPlotOptions{kk}{:});
+                intanPSTHPlots(experimentFolder,'ManualDeartifacting',str2num(experiments.BadBins{jj})+100,'IncludeProbes',includeChannels,'ProbeNames',probeNames,extraPlotOptions{kk}{:}); %#ok<ST2NM>
 
                 for ll = 1:2
                     jbsavefig(gcf,'.\\%s_by_condition',figOrder{ll});
@@ -43,6 +43,8 @@ for ii = 1:numel(uniqueDates)
                 end
             end
         end
+        
+        continue
         
         if ~exist('.\response_params.mat','file')
             calculateLinearArrayResponseParams(experimentFolder);

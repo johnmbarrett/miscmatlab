@@ -10,6 +10,7 @@ function [psths,sdfs] = intanPSTHPlots(folders,varargin)
     addParameter(parser,'FolderTitles',NaN,@iscellstr);
     addParameter(parser,'IncludeProbes',cell(size(folders)),@(x) iscell(x) && numel(x) == numel(folders) && all(cellfun(@(x) isvector(x) || isempty(x),x)));
     addParameter(parser,'ProbeNames',NaN,@iscellstr);
+    addParameter(parser,'ManualDeartifacting',NaN,@(x) isnumeric(x) && (isempty(x) || (isvector(x) && all(isreal(x) & isfinite(x) & x >= 1 & x == round(x)))));
     addParameter(parser,'NoPlot',false,@(x) islogical(x) && isscalar(x));
     addParameter(parser,'NoSave',false,@(x) islogical(x) && isscalar(x));
     addParameter(parser,'SaveFileName','',@(x) (ischar(x) && isvector(x)) || isstring(x));
@@ -31,7 +32,7 @@ function [psths,sdfs] = intanPSTHPlots(folders,varargin)
             continue
         end
         
-        psth = cat(3,Par_PSTH_ave{:,2});
+        psth = cat(3,Par_PSTH_ave{:,2}); %#ok<USENS>
         
         includeProbes = parser.Results.IncludeProbes{ii};
         
@@ -50,23 +51,7 @@ function [psths,sdfs] = intanPSTHPlots(folders,varargin)
     nConditions = size(params,1);
         
     if ~iscell(conditionTitles) % TODO : this assumes the same set of conditions per folder
-        conditionTitles = repmat({''},1,nConditions);
-
-        includeParams = find(arrayfun(@(ii) numel(unique(params(:,ii))) > 1,1:size(params,2)));
-        paramNames = {'PW' 'IPI' 'NP' 'Delay' 'X' 'Y' 'Amp'}; % TODO : older formats
-        paramUnits = {'ms' 'ms' '' 'ms' '' '' '%'};
-
-        for jj = 1:nConditions
-            for kk = includeParams
-                if kk > includeParams(1)
-                    comma = ' ,';
-                else
-                    comma = '';
-                end
-
-                conditionTitles{jj} = sprintf('%s%s%s = %d%s',conditionTitles{jj},comma,paramNames{kk},params(jj,kk),paramUnits{kk});
-            end
-        end
+        conditionTitles = getConditionNames(params);
     end
     
     maxRepeatConditions = max(accumarray(paramIndices,1,[nConditions 1]));
@@ -107,8 +92,15 @@ function [psths,sdfs] = intanPSTHPlots(folders,varargin)
     nProbes = size(psths,2)/32; % TODO : diff number of channels per probe
     sdfs = permute(mean(reshape(psths,size(psths,1),32,nProbes,size(psths,3),size(psths,4)),2),[1 3 4 5 2]); % TODO : nChannels
     
-    if parser.Results.CrudeDeartifacting
+    if ~isnan(parser.Results.ManualDeartifacting)
+        bad = parser.Results.ManualDeartifacting;
+    elseif parser.Results.CrudeDeartifacting
         bad = find(any(any(any(psth >= 0.5,2),3),4)); % TODO : is it ever physiologically possible to have > 1 spike per bin on every trial on every channel of a given probe? is that even what these numbers are?
+    else
+        bad = [];
+    end
+    
+    if ~isempty(bad)
         good = setdiff(1:size(sdfs,1),bad);
         sdfs(bad,:,:,:) = interp1(good,sdfs(good,:,:,:),bad);
     end
@@ -137,7 +129,7 @@ function [psths,sdfs] = intanPSTHPlots(folders,varargin)
             filename = parser.Results.SaveFileName; 
         end
         
-        options = parser.Results;
+        options = parser.Results; %#ok<NASGU>
         
         save(filename,'psths','sdfs','params','folders','options');
     end
