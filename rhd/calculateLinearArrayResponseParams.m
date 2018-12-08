@@ -172,6 +172,10 @@ function responseParams = calculateLinearArrayResponseParams(folder,varargin) % 
                 peakIndex = plotData(1).peakLatencies(kk,jj,ii)*sampleRate+responseStartIndex-1;
                 
                 for ll = 1:2
+                    if any(isnan([x(:,ll);y(:,ll)]))
+                        continue
+                    end
+                    
                     m = diff(y([1 3],ll))/diff(x([1 3],ll));
                     c = y(1,ll)-m*x(1,ll);
                     
