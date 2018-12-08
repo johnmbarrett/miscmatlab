@@ -5,7 +5,7 @@ experiments = readtable(experimentSpreadsheet);
 %%
 nExperiments = size(experiments,1);
 
-figOrder = {'sdf' 'psth'};
+figOrder = {'sdf' 'psth'; 'condition' 'probe'};
 extraPlotOptions = {{} {'NoSave' true 'Subplots' 'Probes'}};
 
 for ii = 1:numel(uniqueDates)
@@ -38,7 +38,7 @@ for ii = 1:numel(uniqueDates)
                 intanPSTHPlots(experimentFolder,'ManualDeartifacting',str2num(experiments.BadBins{jj})+100,'IncludeProbes',includeChannels,'ProbeNames',probeNames,extraPlotOptions{kk}{:}); %#ok<ST2NM>
 
                 for ll = 1:2
-                    jbsavefig(gcf,'.\\%s_by_condition',figOrder{ll});
+                    jbsavefig(gcf,'.\\%s_by_%s',figOrder{1,ll},figOrder{2,kk});
                     close(gcf);
                 end
             end
