@@ -44,7 +44,7 @@ for ii = 1:numel(uniqueDates)
             end
         end
         
-        if true || ~exist('.\response_params.mat','file')
+        if ~exist('.\response_params.mat','file')
             calculateLinearArrayResponseParams(experimentFolder,'ResponseStartIndex',101,'ResponseEndIndex',200,'TransposeData',true,'ProbeNames',probeNames);
         end
     end
