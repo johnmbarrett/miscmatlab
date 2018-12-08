@@ -8,6 +8,8 @@ nExperiments = size(experiments,1);
 figOrder = {'sdf' 'psth'; 'condition' 'probe'};
 extraPlotOptions = {{} {'NoSave' true 'Subplots' 'Probes'}};
 
+stimulusParams = cell(1,nExperiments);
+
 for ii = 1:numel(uniqueDates)
     for jj = find(experiments.Date == uniqueDates(ii))'
         experimentFolder = sprintf('%s\\%s\\%s',topDir,datestr(uniqueDates(ii),'yyyymmdd'),experiments.Folder{jj});
@@ -44,8 +46,49 @@ for ii = 1:numel(uniqueDates)
             end
         end
         
-        if ~exist('.\response_params.mat','file')
-            calculateLinearArrayResponseParams(experimentFolder,'ResponseStartIndex',101,'ResponseEndIndex',200,'TransposeData',true,'ProbeNames',probeNames);
+        load('.\psth.mat','params');
+        stimulusParams{jj} = params;
+        
+        if exist('.\response_params.mat','file')
+            responseParam = load('.\response_params.mat');
+        else
+            responseParam = calculateLinearArrayResponseParams(experimentFolder,'ResponseStartIndex',101,'ResponseEndIndex',200,'TransposeData',true,'ProbeNames',probeNames);
+        end
+        
+        if jj == 1
+            responseParams = repmat(responseParam,1,nExperiments);
+        else
+            responseParams(jj) = responseParam;
+        end
+    end
+end
+
+%%
+
+[allStimulusParams,~,stimulusParamIndices] = unique(vertcat(stimulusParams{:}),'rows');
+nParamsPerRecording = cellfun(@(A) size(A,1),stimulusParams);
+stimulusParamIndices = mat2cell(stimulusParamIndices,nParamsPerRecording,1);
+
+bodyParts = {'Forepaw' 'Hindpaw' 'Whisker' 'None'};
+subBodyParts = {'D1' 'D2' 'D3' 'D4' 'D5' 'HT' 'TH'};
+
+bodyPartIndices = cellfun(@(s) find(ismember(bodyParts,s)),experiments.BodyPart)+6;
+bodyPartIndices(bodyPartIndices == 7) = cellfun(@(s) find(ismember(subBodyParts,s)),experiments.SubBodyPart(bodyPartIndices == 7));
+
+%%
+
+fields = fieldnames(responseParams(1));
+
+allResponseParams = struct([]);
+
+for ii = 1:numel(fields)
+    allResponseParams(1).(fields{ii}) = cell(3,max(vertcat(stimulusParamIndices{:})),max(bodyPartIndices));
+    
+    for jj = 1:nExperiments
+        for kk = 1:nParamsPerRecording(jj)
+            for ll = 1:3
+                allResponseParams(1).(fields{ii}){ll,stimulusParamIndices{jj}(kk),bodyPartIndices(jj)}(end+1) = responseParams(jj).(fields{ii})(ll,kk);
+            end
         end
     end
 end
