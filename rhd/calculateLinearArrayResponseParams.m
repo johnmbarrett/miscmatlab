@@ -78,12 +78,14 @@ function responseParams = calculateLinearArrayResponseParams(folder,varargin) % 
         firstFall = find(polarities{ii}((firstRise+1):end) < 0,1)+firstRise;
         
         if isempty(firstFall)
-            firstFall = responseEndIndex-responseStartIndex+1;
+            firstFallIndex = responseEndIndex-responseStartIndex+1;
+        else
+            firstFallIndex = thresholdCrossings{ii}(firstFall);
         end
         
-        responseParams(1).responseEndTime(ii) = thresholdCrossings{ii}(firstFall)/sampleRate;
+        responseParams(1).responseEndTime(ii) = firstFallIndex/sampleRate;
         
-        responseParams(1).responseArea(ii) = sum(sdfs(responseStartIndex-1+(thresholdCrossings{ii}(firstRise):thresholdCrossings{ii}(firstFall)),ii));
+        responseParams(1).responseArea(ii) = sum(sdfs(responseStartIndex-1+(thresholdCrossings{ii}(firstRise):firstFallIndex),ii));
     end
     
     fields = fieldnames(responseParams);
