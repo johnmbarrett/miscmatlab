@@ -248,7 +248,7 @@ function responseParams = calculateLinearArrayResponseParams(folder,varargin) % 
             subplot(rows,cols,jj);
             
             fieldIndex = ternaryop(isParamsAsSubplots,jj,ii);
-            hs = plot(coefficients(fieldIndex)*plotData(1).(fields{fieldIndex})(:,:,ternaryop(isParamsAsSubplots,1,jj)),'Marker','o');
+            hs = plot(1:resultSize(1),coefficients(fieldIndex)*plotData(1).(fields{fieldIndex})(:,:,ternaryop(isParamsAsSubplots,1,jj)),'Marker','o');
             
             xlim([0.5 resultSize(1)+0.5]);
             
