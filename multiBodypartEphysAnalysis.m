@@ -107,7 +107,7 @@ for ii = 1:numel(uniqueDates)
         
         [psths,sdfs,params] = combineIntanPSTHs(psths(:),sdfs(:),params(:));
                 
-        intanPSTHPlots(psths,sdfs,params,'Subplots','Probes','ProbeNames',probeNames,'FolderTitles',folderTitles);
+        intanPSTHPlots(psths,sdfs,params,'Subplots','Probes','ProbeNames',probeNames,'FolderTitles',uniqueBodyParts,'Subfigures','Conditions');
     end
 end
 

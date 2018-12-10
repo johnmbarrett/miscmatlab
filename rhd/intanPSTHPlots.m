@@ -4,6 +4,7 @@ function [psths,sdfs] = intanPSTHPlots(psths,sdfs,params,varargin)
     addParameter(parser,'ConditionTitles',NaN,@iscellstr);
     addParameter(parser,'FolderTitles',repmat({''},size(psths,4)),@iscellstr);
     addParameter(parser,'ProbeNames',NaN,@iscellstr);
+    addParameter(parser,'Subfigures','Folders',@(x) ismember(x,{'Conditions' 'Probes' 'Folders'}));
     addParameter(parser,'Subplots','Conditions',@(x) ismember(x,{'Conditions' 'Probes'}));
     parser.parse(varargin{:});
     
@@ -22,8 +23,15 @@ function [psths,sdfs] = intanPSTHPlots(psths,sdfs,params,varargin)
     end
     
     nBins = size(psths,1);
+    nProbes = size(psths,2)/32; % TODO : diff number of channels per probe
     nConditions = size(psths,3);
     nFolders = size(psths,4);
+    
+    if ~iscell(parser.Results.ProbeNames)
+        probeNames = arrayfun(@(ii) sprintf('Probe %d',ii),1:nProbes,'UniformOutput',false);
+    else
+        probeNames = parser.Results.ProbeNames;
+    end
     
     switch parser.Results.Subplots
         case 'Conditions'
@@ -31,32 +39,48 @@ function [psths,sdfs] = intanPSTHPlots(psths,sdfs,params,varargin)
             
             if isSingleConditionPerFolder
                 subplotTitles = folderTitles;
-                figureTitles = {''};
             else
                 subplotTitles = conditionTitles;
-                figureTitles = folderTitles;
             end
         case 'Probes'
-            nProbes = size(psths,2)/32; % TODO : diff number of channels per probe
             psths = reshape(permute(reshape(psths,nBins,32,nProbes,nConditions,nFolders),[1 2 4 3 5]),nBins,32*nConditions,nProbes,nFolders);
             sdfs = permute(sdfs,[1 3 2 4]);
             
-            if ~iscell(parser.Results.ProbeNames)
-                subplotTitles = arrayfun(@(ii) sprintf('Probe %d',ii),1:nProbes,'UniformOutput',false);
-            else
-                subplotTitles = parser.Results.ProbeNames;
-            end
+            subplotTitles = probeNames;
 
             if isSingleConditionPerFolder
                 legendEntries = folderTitles;
-                figureTitles = {''};
             else
                 legendEntries = conditionTitles;
-                figureTitles = folderTitles;
             end
         otherwise
             error('Unknown Subplots option ''%s''\n',parser.Results.Subplots);
     end
+    
+    assert(~strcmp(parser.Results.Subplots,parser.Results.Subfigures),'Subplots and Subfigures options can''t be the same.')
+    
+    switch parser.Results.Subfigures
+        case 'Conditions' % subplots option *MUST* be Probes
+            psths = reshape(permute(reshape(psths,nBins,32,nConditions,nProbes,nFolders),[1 2 5 4 3]),nBins,32*nFolders,nProbes,nConditions);
+            sdfs = permute(sdfs,[1 4 3 2]);
+            
+            figureTitles = conditionTitles;
+            legendEntries = folderTitles;
+        case 'Folders'
+            if isSingleConditionPerFolder
+                figureTitles = {''};
+            else
+                figureTitles = folderTitles;
+            end
+        case 'Probes' % subplots option *MUST* be Conditions
+            error('test')
+            psths = reshape(permute(reshape(psths,nBins,32,nProbes,nConditions,nFolders),[1 2 4 5 3]),nBins,32*nConditions,nFolders,nProbes);
+            sdfs = permute(sdfs,[1 3 4 2]);
+            
+            figureTitles = probeNames;
+        otherwise
+            error('Unknown Subfigures option ''%s''\n',parser.Results.Subfigures);
+    end     
     
     nSubImages = size(psths,2)/32;
     
