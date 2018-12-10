@@ -37,9 +37,15 @@ function [psths,sdfs] = intanPSTHPlots(psths,sdfs,params,varargin)
                 figureTitles = folderTitles;
             end
         case 'Probes'
+            nProbes = size(psths,2)/32; % TODO : diff number of channels per probe
             psths = reshape(permute(reshape(psths,nBins,32,nProbes,nConditions,nFolders),[1 2 4 3 5]),nBins,32*nConditions,nProbes,nFolders);
             sdfs = permute(sdfs,[1 3 2 4]);
-            subplotTitles = parser.Results.ProbeNames;
+            
+            if ~iscell(parser.Results.ProbeNames)
+                subplotTitles = arrayfun(@(ii) sprintf('Probe %d',ii),1:nProbes,'UniformOutput',false);
+            else
+                subplotTitles = parser.Results.ProbeNames;
+            end
 
             if isSingleConditionPerFolder
                 legendEntries = folderTitles;
