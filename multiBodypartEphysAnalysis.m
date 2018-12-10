@@ -8,10 +8,15 @@ nExperiments = size(experiments,1);
 figOrder = {'sdf' 'psth'; 'condition' 'probe'};
 extraPlotOptions = {{} {'NoSave' true 'Subplots' 'Probes'}};
 
+allPSTHs = cell(1,nExperiments);
+allSDFs = cell(1,nExperiments);
 stimulusParams = cell(1,nExperiments);
 
 for ii = 1:numel(uniqueDates)
-    for jj = find(experiments.Date == uniqueDates(ii))'
+    dateIndices = find(experiments.Date == uniqueDates(ii))';
+    
+    for jj = dateIndices
+        tic;
         experimentFolder = sprintf('%s\\%s\\%s',topDir,datestr(uniqueDates(ii),'yyyymmdd'),experiments.Folder{jj});
         cd(experimentFolder);
         
@@ -46,7 +51,9 @@ for ii = 1:numel(uniqueDates)
             end
         end
         
-        load('.\psth.mat','params');
+        load('.\psth.mat','psths','sdfs','params');
+        allPSTHs{jj} = psths;
+        allSDFs{jj} = sdfs;
         stimulusParams{jj} = params;
         
         if exist('.\response_params.mat','file')
@@ -60,6 +67,47 @@ for ii = 1:numel(uniqueDates)
         else
             responseParams(jj) = responseParam;
         end
+        
+        toc;
+    end
+    
+    [groups,~,groupIndices] = unique(experiments.Group(dateIndices));
+    
+    for jj = 1:numel(groups)
+        if groups(jj) == 0 
+            continue
+        end
+        
+        psthIndices = dateIndices(groupIndices == jj);
+        
+        folderTitles = cell(1,numel(psthIndices));
+        
+        for kk = 1:numel(folderTitles)
+            if strcmp(experiments.BodyPart{psthIndices(kk)},'Forepaw')
+                folderTitles{kk} = experiments.SubBodyPart{psthIndices(kk)};
+            else
+                folderTitles{kk} = experiments.BodyPart{psthIndices(kk)};
+            end
+        end
+        
+        [uniqueBodyParts,~,bodyPartIndices] = unique(folderTitles);
+        
+        % TODO : introduce function?
+        psths = cell(numel(uniqueBodyParts),max(accumarray(bodyPartIndices,1)));
+        sdfs = cell(size(psths));
+        params = cell(size(psths));
+        seen = zeros(numel(uniqueBodyParts),1);
+        
+        for kk = 1:numel(folderTitles)
+            seen(bodyPartIndices(kk)) = seen(bodyPartIndices(kk)) + 1;
+            psths(bodyPartIndices(kk),seen(bodyPartIndices(kk))) = allPSTHs(psthIndices(kk));
+            sdfs(bodyPartIndices(kk),seen(bodyPartIndices(kk))) = allSDFs(psthIndices(kk));
+            params(bodyPartIndices(kk),seen(bodyPartIndices(kk))) = stimulusParams(psthIndices(kk));
+        end
+        
+        [psths,sdfs,params] = combineIntanPSTHs(psths(:),sdfs(:),params(:));
+                
+        intanPSTHPlots(psths,sdfs,params,'Subplots','Probes','ProbeNames',probeNames,'FolderTitles',folderTitles);
     end
 end
 
