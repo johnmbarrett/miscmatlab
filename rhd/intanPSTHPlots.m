@@ -4,7 +4,7 @@ function [psths,sdfs] = intanPSTHPlots(folders,varargin)
     end
 
     parser = inputParser;
-    addParameter(parser,'AverageDuplicateConditions',false,@(x) islogical(x) && isscalar(x));
+    parser.KeepUnmatched = true;
     addParameter(parser,'ConditionTitles',NaN,@iscellstr);
     addParameter(parser,'CrudeDeartifacting',false,@(x) islogical(x) && isscalar(x));
     addParameter(parser,'FolderTitles',NaN,@iscellstr);
@@ -32,7 +32,7 @@ function [psths,sdfs] = intanPSTHPlots(folders,varargin)
             continue
         end
         
-        psth = cat(3,Par_PSTH_ave{:,2}); %#ok<USENS>
+        psth = cat(3,Par_PSTH_ave{:,2}); %#ok<IDISVAR,USENS>
         
         includeProbes = parser.Results.IncludeProbes{ii};
         
@@ -47,46 +47,10 @@ function [psths,sdfs] = intanPSTHPlots(folders,varargin)
         allParams{ii} = vertcat(Par_PSTH_ave{:,1});
     end
     
-    [params,~,paramIndices] = unique(vertcat(allParams{:}),'rows');
-    nConditions = size(params,1);
+    [psths,params] = combineIntanPSTHs(allPSTHs,allParams,varargin{:});
         
     if ~iscell(conditionTitles) % TODO : this assumes the same set of conditions per folder
         conditionTitles = getConditionNames(params);
-    end
-    
-    maxRepeatConditions = max(accumarray(paramIndices,1,[nConditions 1]));
-    
-    if maxRepeatConditions == 1 && numel(folders) > 1
-        error('Need to check if this results in the same matrix regardless of how you set AverageDuplicateConditions');
-    end
-    
-    if parser.Results.AverageDuplicateConditions
-        psths = nan([size(allPSTHs{1},1) size(allPSTHs{1},2) nConditions numel(folders)]);
-    else
-        psths = nan([size(allPSTHs{1},1) size(allPSTHs{1},2) nConditions maxRepeatConditions]);
-        seen = zeros(nConditions,1);
-    end
-    
-    psthsSoFar = 0;
-    for ii = 1:numel(allPSTHs)
-        psthParamIndices = paramIndices(psthsSoFar+(1:size(allPSTHs{ii},3)));
-        
-        if parser.Results.AverageDuplicateConditions
-            hyperpageIndices = repmat(ii,size(psthParamIndices));
-        else
-            seen(psthParamIndices) = seen(psthParamIndices)+1;
-            hyperpageIndices = seen(psthParamIndices);
-        end
-        
-        for jj = 1:size(allPSTHs{ii},3)
-            psths(:,:,psthParamIndices(jj),hyperpageIndices(jj)) = allPSTHs{ii}(:,:,jj);
-        end
-        
-        psthsSoFar = psthsSoFar + size(allPSTHs{ii},3);
-    end
-    
-    if parser.Results.AverageDuplicateConditions
-        psths = nanmean(psths,4);
     end
     
     nProbes = size(psths,2)/32; % TODO : diff number of channels per probe
