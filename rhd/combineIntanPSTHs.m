@@ -10,50 +10,55 @@ function [psths,params,varargout] = combineIntanPSTHs(allPSTHs,allParams,varargi
         allParams = varargin{1};
         varargin = varargin(2:end);
     end
-
-    [params,~,paramIndices] = unique(vertcat(allParams{:}),'rows');
-    nConditions = size(params,1);
-    
-    maxRepeatConditions = max(accumarray(paramIndices,1,[nConditions 1]));
-    
-    if maxRepeatConditions == 1 && numel(allPSTHs) > 1
-        error('Need to check if this results in the same matrix regardless of how you set AverageDuplicateConditions');
-    end
     
     parser = inputParser;
     parser.KeepUnmatched = true;
     addParameter(parser,'AverageDuplicateConditions',false,@(x) islogical(x) && isscalar(x));
+    addParameter(parser,'FolderTitles',NaN,@(x) iscellstr(x) && numel(x) == numel(allPSTHs)); %#ok<ISCLSTR>
     parser.parse(varargin{:});
     
-    if parser.Results.AverageDuplicateConditions
-        nPSTHs = numel(allPSTHs);
+    if iscell(parser.Results.FolderTitles)
+        folders = cellfun(@(params,folder) repmat({folder},size(params,1),1),allParams,reshape(parser.Results.FolderTitles,size(allParams)),'UniformOutput',false);
+        [uniqueFolders,~,folderIndices] = unique(vertcat(folders{:}));
+        nFolders = numel(uniqueFolders);
+    elseif parser.Results.AverageDuplicateConditions
+        folderIndices = ones(sum(cellfun(@(A) size(A,1),allParams)),1);
+        nFolders = 1;
     else
-        nPSTHs = maxRepeatConditions;
-        seen = zeros(nConditions,1);
+        folderIndices = arrayfun(@(ii,A) repmat(ii,size(A{1},1)),reshape(1:numel(allParams),size(allParams)),allParams,'UniformOutput',false);
+        folderIndices = vertcat(folderIndices{:});
+        nFolders = numel(allParams);
     end
     
-    psths = nan([size(allPSTHs{1},1) size(allPSTHs{1},2) nConditions nPSTHs]);
+    allParams = vertcat(allParams{:});
+    [params,~,paramIndices] = unique(allParams,'rows');
+    nConditions = size(params,1);
+    
+    [~,~,hyperParamIndices] = unique([allParams folderIndices],'rows');
+    
+    maxRepeatConditions = max(accumarray(hyperParamIndices,1));
+    
+    seen = zeros(nConditions,nFolders);
+    
+    psths = nan([size(allPSTHs{1},1) size(allPSTHs{1},2) nConditions maxRepeatConditions nFolders]);
     
     if isCombineSDFs
-        sdfs = nan([size(allSDFs{1},1) size(allSDFs{1},2) nConditions nPSTHs]);
+        sdfs = nan([size(allSDFs{1},1) size(allSDFs{1},2) nConditions maxRepeatConditions nFolders]);
     end
     
     psthsSoFar = 0;
     for ii = 1:numel(allPSTHs)
         psthParamIndices = paramIndices(psthsSoFar+(1:size(allPSTHs{ii},3)));
+        psthFolderIndices = folderIndices(psthsSoFar+(1:size(allPSTHs{ii},3)));
         
-        if parser.Results.AverageDuplicateConditions
-            hyperpageIndices = repmat(ii,size(psthParamIndices));
-        else
-            seen(psthParamIndices) = seen(psthParamIndices)+1;
-            hyperpageIndices = seen(psthParamIndices);
-        end
+        seen(psthParamIndices,psthFolderIndices) = seen(psthParamIndices,psthFolderIndices)+1;
+        hyperpageIndices = seen(psthParamIndices,psthFolderIndices);
         
         for jj = 1:size(allPSTHs{ii},3)
-            psths(:,:,psthParamIndices(jj),hyperpageIndices(jj)) = allPSTHs{ii}(:,:,jj);
+            psths(:,:,psthParamIndices(jj),hyperpageIndices(jj),psthFolderIndices(jj)) = allPSTHs{ii}(:,:,jj);
             
             if isCombineSDFs
-                sdfs(:,:,psthParamIndices(jj),hyperpageIndices(jj)) = allSDFs{ii}(:,:,jj);
+                sdfs(:,:,psthParamIndices(jj),hyperpageIndices(jj),psthFolderIndices(jj)) = allSDFs{ii}(:,:,jj);
             end
         end
         
@@ -65,6 +70,14 @@ function [psths,params,varargout] = combineIntanPSTHs(allPSTHs,allParams,varargi
         
         if isCombineSDFs
             sdfs = nanmean(sdfs,4);
+        end
+    end
+    
+    if size(psths,4) == 1
+        psths = permute(psths,[1 2 3 5 4]);
+        
+        if isCombineSDFs
+            sdfs = permute(sdfs,[1 2 3 5 4]);
         end
     end
     
