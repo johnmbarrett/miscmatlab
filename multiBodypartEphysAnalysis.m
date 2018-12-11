@@ -12,7 +12,7 @@ allPSTHs = cell(1,nExperiments);
 allSDFs = cell(1,nExperiments);
 stimulusParams = cell(1,nExperiments);
 
-for ii = 1:2 %numel(uniqueDates)
+for ii = 1:numel(uniqueDates)
     dateIndices = find(experiments.Date == uniqueDates(ii))';
     
     for jj = dateIndices
@@ -71,6 +71,8 @@ for ii = 1:2 %numel(uniqueDates)
         toc;
     end
     
+    cd(sprintf('%s\\%s',topDir,datestr(uniqueDates(ii),'yyyymmdd')));
+    
     [groups,~,groupIndices] = unique(experiments.Group(dateIndices));
     
     for jj = 1:numel(groups)
@@ -97,8 +99,29 @@ for ii = 1:2 %numel(uniqueDates)
         else
             subfigures = 'Folders';
         end
+        
+        uniqueBodyParts = unique(folderTitles);
                 
-        intanPSTHPlots(psths,sdfs,params,'Subplots','Probes','ProbeNames',probeNames,'FolderTitles',unique(folderTitles),'Subfigures',subfigures);
+        [psthFigs,sdfFigs] = intanPSTHPlots(psths,sdfs,params,'Subplots','Probes','ProbeNames',strsplit(experiments.ProbeNames{psthIndices(1)},' '),'FolderTitles',uniqueBodyParts,'Subfigures',subfigures);
+        
+        nFigs = numel(psthFigs);
+        for kk = 1:nFigs
+            if nFigs == 1
+                suffix = '';
+            elseif nFigs == size(params,1)
+                suffix = sprintf('_amp_%d_pw_%d',params(kk,7),params(kk,1));
+            elseif nFigs == numel(uniqueBodyParts)
+                suffix = sprintf('_%s',uniqueBodyParts{ii});
+            else
+                error('oh dear');
+            end
+            
+            jbsavefig(psthFigs(kk),'psth_group_%d%s',groups(jj),suffix);
+            close(psthFigs(kk));
+            
+            jbsavefig(sdfFigs(kk),'sdf_group_%d%s',groups(jj),suffix);
+            close(sdfFigs(kk));
+        end
     end
 end
 

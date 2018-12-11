@@ -1,4 +1,4 @@
-function [psths,sdfs] = intanPSTHPlots(psths,sdfs,params,varargin)
+function [psthFigs,sdfFigs] = intanPSTHPlots(psths,sdfs,params,varargin)
     parser = inputParser;
     parser.KeepUnmatched = true;
     addParameter(parser,'ConditionTitles',NaN,@iscellstr);
@@ -89,8 +89,10 @@ function [psths,sdfs] = intanPSTHPlots(psths,sdfs,params,varargin)
     
     [rows,cols] = subplots(size(psths,3)); % TODO : choose based on params if more than two parameters were varied in a recording
     
+    psthFigs = gobjects(size(psths,4),1);
+    
     for hh = 1:size(psths,4)
-        figure;
+        psthFigs(hh) = figure;
         
         for ii = 1:size(psths,3)
             subplot(rows,cols,ii);
@@ -120,11 +122,11 @@ function [psths,sdfs] = intanPSTHPlots(psths,sdfs,params,varargin)
     end
     
     yy = [Inf -Inf];
-    figs = gobjects(1,size(psths,4));
+    sdfFigs = gobjects(size(psths,4),1);
     
     % TODO : duplicated code
     for hh = 1:size(psths,4)
-        figs(hh) = figure;
+        sdfFigs(hh) = figure;
         
         for ii = 1:size(psths,3)
             subplot(rows,cols,ii);
@@ -148,5 +150,5 @@ function [psths,sdfs] = intanPSTHPlots(psths,sdfs,params,varargin)
         end
     end
     
-    set(findobj(figs,'Type','Axes'),'YLim',yy);
+    set(findobj(sdfFigs,'Type','Axes'),'YLim',yy);
 end
