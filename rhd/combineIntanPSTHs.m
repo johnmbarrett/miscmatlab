@@ -2,11 +2,21 @@ function [psths,params,varargout] = combineIntanPSTHs(allPSTHs,allParams,varargi
     isCombineSDFs = false;
     
     if all(cellfun(@(psth,sdf) ndims(psth) == ndims(sdf) && size(psth,1) == size(sdf,1) && all(arrayfun(@(ii) size(psth,ii) == size(sdf,ii),3:ndims(psth))),allPSTHs,allParams))
-        assert(~isempty(varargin) && all(cellfun(@(params) ismatrix(params) && size(params,2) == 7,varargin{1})),'You must supply at least one parameter matrix');
+        assert(~isempty(varargin) && isstruct(varargin{1}) || all(cellfun(@(params) ismatrix(params) && size(params,2) == 7,varargin{1})),'You must supply at least one parameter matrix');
         
         isCombineSDFs = true;
         
         allSDFs = allParams;
+        allParams = varargin{1};
+        varargin = varargin(2:end);
+    end
+    
+    if isCombineSDFs && isstruct(allParams)
+        assert(~isempty(varargin) && all(cellfun(@(params) ismatrix(params) && size(params,2) == 7,varargin{1})),'You must supply at least one parameter matrix');
+        
+        isCombineResponses = true;
+        
+        allResponses = allParams;
         allParams = varargin{1};
         varargin = varargin(2:end);
     end
@@ -46,6 +56,16 @@ function [psths,params,varargout] = combineIntanPSTHs(allPSTHs,allParams,varargi
         sdfs = nan([size(allSDFs{1},1) size(allSDFs{1},2) nConditions maxRepeatConditions nFolders]);
     end
     
+    if isCombineResponses
+        fields = fieldnames(allResponses);
+        
+        responses = allResponses(1);
+        
+        for ii = 1:numel(fields)
+            responses(1).(fields{ii}) = nan([size(allSDFs{1},2) nConditions maxRepeatConditions nFolders]);
+        end
+    end
+    
     psthsSoFar = 0;
     for ii = 1:numel(allPSTHs)
         psthParamIndices = paramIndices(psthsSoFar+(1:size(allPSTHs{ii},3)));
@@ -60,6 +80,12 @@ function [psths,params,varargout] = combineIntanPSTHs(allPSTHs,allParams,varargi
             if isCombineSDFs
                 sdfs(:,:,psthParamIndices(jj),hyperpageIndices(jj),psthFolderIndices(jj)) = allSDFs{ii}(:,:,jj);
             end
+            
+            if isCombineResponses
+                for kk = 1:numel(fields)
+                    responses(1).(fields{kk})(:,psthParamIndices(jj),hyperpageIndices(jj),psthFolderIndices(jj)) = allResponses(ii).(fields{kk})(:,jj);
+                end
+            end
         end
         
         psthsSoFar = psthsSoFar + size(allPSTHs{ii},3);
@@ -71,6 +97,12 @@ function [psths,params,varargout] = combineIntanPSTHs(allPSTHs,allParams,varargi
         if isCombineSDFs
             sdfs = nanmean(sdfs,4);
         end
+        
+        if isCombineResponses
+            for ii = 1:numel(fields)
+                responses(1).(fields{ii}) = nanmean(responses(1).(fields{ii}),3);
+            end
+        end
     end
     
     if size(psths,4) == 1
@@ -78,6 +110,12 @@ function [psths,params,varargout] = combineIntanPSTHs(allPSTHs,allParams,varargi
         
         if isCombineSDFs
             sdfs = permute(sdfs,[1 2 3 5 4]);
+        end
+        
+        if isCombineResponses
+            for ii = 1:numel(fields)
+                responses(1).(fields{ii}) = permute(responses(1).(fields{ii}),[1 2 4 3]);
+            end
         end
     end
     
@@ -87,5 +125,12 @@ function [psths,params,varargout] = combineIntanPSTHs(allPSTHs,allParams,varargi
         end
         
         params = sdfs;
+    end
+    
+    if isCombineResponses
+        if nargout > 3
+            varargout{2} = varargout{1};
+            varargout{1} = responses;
+        end
     end
 end
