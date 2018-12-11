@@ -12,7 +12,7 @@ allPSTHs = cell(1,nExperiments);
 allSDFs = cell(1,nExperiments);
 stimulusParams = cell(1,nExperiments);
 
-for ii = 1:numel(uniqueDates)
+for ii = 1:2 %numel(uniqueDates)
     dateIndices = find(experiments.Date == uniqueDates(ii))';
     
     for jj = dateIndices
@@ -90,26 +90,19 @@ for ii = 1:numel(uniqueDates)
             end
         end
         
-        [uniqueBodyParts,~,bodyPartIndices] = unique(folderTitles);
+        [psths,sdfs,params] = combineIntanPSTHs(allPSTHs(psthIndices),allSDFs(psthIndices),stimulusParams(psthIndices),'AverageDuplicateConditions',true,'FolderTitles',folderTitles);
         
-        % TODO : introduce function?
-        psths = cell(numel(uniqueBodyParts),max(accumarray(bodyPartIndices,1)));
-        sdfs = cell(size(psths));
-        params = cell(size(psths));
-        seen = zeros(numel(uniqueBodyParts),1);
-        
-        for kk = 1:numel(folderTitles)
-            seen(bodyPartIndices(kk)) = seen(bodyPartIndices(kk)) + 1;
-            psths(bodyPartIndices(kk),seen(bodyPartIndices(kk))) = allPSTHs(psthIndices(kk));
-            sdfs(bodyPartIndices(kk),seen(bodyPartIndices(kk))) = allSDFs(psthIndices(kk));
-            params(bodyPartIndices(kk),seen(bodyPartIndices(kk))) = stimulusParams(psthIndices(kk));
+        if size(psths,3) < size(psths,4)
+            subfigures = 'Conditions';
+        else
+            subfigures = 'Folders';
         end
-        
-        [psths,sdfs,params] = combineIntanPSTHs(psths(:),sdfs(:),params(:));
                 
-        intanPSTHPlots(psths,sdfs,params,'Subplots','Probes','ProbeNames',probeNames,'FolderTitles',uniqueBodyParts,'Subfigures','Conditions');
+        intanPSTHPlots(psths,sdfs,params,'Subplots','Probes','ProbeNames',probeNames,'FolderTitles',unique(folderTitles),'Subfigures',subfigures);
     end
 end
+
+error('');
 
 %%
 
