@@ -61,8 +61,11 @@ function [psths,sdfs] = intanPSTHPlots(psths,sdfs,params,varargin)
     
     switch parser.Results.Subfigures
         case 'Conditions' % subplots option *MUST* be Probes
-            psths = reshape(permute(reshape(psths,nBins,32,nConditions,nProbes,nFolders),[1 2 5 4 3]),nBins,32*nFolders,nProbes,nConditions);
-            sdfs = permute(sdfs,[1 4 3 2]);
+            if ~isSingleConditionPerFolder
+                % we've already taken care of this at the beginning
+                psths = reshape(permute(reshape(psths,nBins,32,nConditions,nProbes,nFolders),[1 2 5 4 3]),nBins,32*nFolders,nProbes,nConditions);
+                sdfs = permute(sdfs,[1 4 3 2]);
+            end
             
             figureTitles = conditionTitles;
             legendEntries = folderTitles;
